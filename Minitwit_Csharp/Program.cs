@@ -1,63 +1,72 @@
+using System.Text.RegularExpressions;
 using Microsoft.Data.Sqlite;
 
 namespace Minitwit;
 public class Program 
 {
+    static string dbPath = @"./tmp/minitwit.db";
+
     static void Main(string[] args)
     {
-        var dbPath = @"./tmp/minitwit.db";
         var perPage = 30;
         var debug = true;
         var secretKey = "development key";
-
 
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
         app.Run();
 
+        
+    }
 
-        // open connection to db
-        SqliteConnection connectDb()
-        {
-            return new SqliteConnection($"Data Source={dbPath}");
-        }
+    // open connection to db
+    static SqliteConnection connectDb()
+    {
+        return new SqliteConnection($"Data Source={dbPath}");
+    }
 
-        // create db tables
-        void initDb(SqliteConnection connection)
+    // create db tables
+    static void initDb(SqliteConnection connection)
+    {
+        try
         {
-            try
+            using(connection)
             {
-                using(connection)
+                using (SqliteCommand sqlReader = connection.CreateCommand())
                 {
-                    using (SqliteCommand sqlReader = connection.CreateCommand())
-                    {
-                        connection.Open();
-                        sqlReader.CommandText = File.ReadAllText("./schema.sql");
-                        sqlReader.ExecuteNonQuery();
-                    }
+                    connection.Open();
+                    sqlReader.CommandText = File.ReadAllText("./schema.sql");
+                    sqlReader.ExecuteNonQuery();
                 }
             }
-            finally
-            {
-                connection.Close();
-            }   
         }
-
-        void initDb2()
+        finally
         {
-            using (SqliteConnection connection = connectDb())
-            {
-                connection.Open();
-                SqliteCommand sqlReader = connection.CreateCommand();
-                sqlReader.CommandText = File.ReadAllText("./schema.sql");
-                sqlReader.ExecuteNonQuery();
-            }
+            connection.Close();
+        }   
+    }
+
+    static void initDb2()
+    {
+        using (SqliteConnection connection = connectDb())
+        {
+            connection.Open();
+            SqliteCommand sqlReader = connection.CreateCommand();
+            sqlReader.CommandText = File.ReadAllText("./schema.sql");
+            sqlReader.ExecuteNonQuery();
         }
     }
 
-    object? queryDb(string query, string[] args, bool one = false)
+    static object? queryDb(string query, string[] args, bool one = false)
     {
+        // Replace the ?s with the args.
+        for(var i = 0; i < args.Length; i++)
+        {
+            var regex = new Regex(Regex.Escape("?"));
+            query = regex.Replace(query, args[i], 1);
+        }
+
         using (SqliteConnection connection = connectDb())
         {
             connection.Open();
