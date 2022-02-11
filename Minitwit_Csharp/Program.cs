@@ -1,5 +1,10 @@
 using System.Text.RegularExpressions;
+using System.Security.Cryptography;
+
 using Microsoft.Data.Sqlite;
+using System.Text;
+
+//using static System.Net.Mime.MediaTypeNames;
 
 namespace Minitwit;
 public class Program 
@@ -79,7 +84,12 @@ public class Program
             }
             else
             {
-                
+                var dict = new Dictionary<string, string>();
+                using var reader = cmd.ExecuteReader();
+                while(reader.Read())
+                {
+                    dict.Add(reader.GetString())
+                }
             }
             
         }
@@ -92,8 +102,8 @@ public class Program
         {
             connection.Open();
             SqliteCommand cmd = connection.CreateCommand();
-            cmd.CommandText = "select user_id from user where username = '?'";
-            cmd.Parameters.AddWithValue("?", username);
+            cmd.CommandText = "select user_id from user where username = @?";
+            cmd.Parameters.AddWithValue("@?", username);
             
             Int32 rv = Convert.ToInt32(cmd.ExecuteScalar());
 
@@ -103,20 +113,74 @@ public class Program
 
     public string format_datetime(DateTime timestamp)
     {
-        var formatted_datetime = timestamp
-
-        return formatted_datetime;
+        return timestamp.ToString("yyyy-MM-dd @ hh:mm");
     }
 
-    public void gravatar_url(string username)
+    // TODO : Figure out how to return an image from the hashed link... Returntype? Filetype? 
+    // Get profile image by hashing user email and entering the hash into
+    public static string gravatar_url(string email, int size = 80)
+    {
+        MD5 md5Hasher = MD5.Create();
+        byte[] data = md5Hasher.ComputeHash(Encoding.Default.GetBytes(email));
+
+        StringBuilder strBuilder = new StringBuilder();
+
+        for(int i = 0; i < data.Length; i++)
+        {
+            strBuilder.Append(data[i].ToString("x2"));
+        }
+
+        string imageString = strBuilder.ToString();
+
+        // return image associated with link...
+        
+        
+        return string.Format("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", imageString, size);
+    }
+
+    void timeline()
     {
         
     }
 
+    void public_timeline()
+    {
+        
+    }
+    void user_timeline(string username)
+    {
+        
+    }
 
+    void follow_user()
+    {
+        
+    }
 
+    void unfollow_user()
+    {
+        
+    }
 
+    void add_message()
+    {
+        
+    }
 
-    
+    void login()
+    {
+        
+    }
+
+    void register()
+    {
+        
+    }
+
+    void logout()
+    {
+        
+    }
+
 
 }
