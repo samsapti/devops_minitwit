@@ -1,6 +1,7 @@
 package main
 
 import (
+	"C"
 	"database/sql"
 	"fmt"
 	"io/ioutil"
@@ -9,6 +10,8 @@ import (
 	"os"
 	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
+    pongo2     "github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 )
@@ -19,10 +22,13 @@ var DEBUG = true
 var SECRET_KEY = "development key"
 var loggedIn = false
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+var sq = sqlite3.ErrAbort
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", timeline)
+	//r.HandleFunc("/", timeline)
+	r.HandleFunc("/", index)
+	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
@@ -43,6 +49,13 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
 	}
+}
+
+func index(w http.ResponseWriter, r *http.Request) {
+    tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
+    if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+    }
 }
 
 func checkError(err error) {
