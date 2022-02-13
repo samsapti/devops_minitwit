@@ -4,14 +4,14 @@ import (
 	"C"
 	"database/sql"
 	"fmt"
-	"html/template"
+	//"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
-
+	pongo2 	"github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 )
 
@@ -25,11 +25,9 @@ func main() {
 	r := mux.NewRouter()
 	//r.HandleFunc("/", timeline)
 	r.HandleFunc("/", index)
-	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("./static/css/"))))
+	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 
-	//r.PathPrefix("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-	//	http.ServeFile(rw, r, "./static/layout.html")
-	//})
+	
 
 	/* r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
@@ -53,10 +51,10 @@ func main() {
 	}
 }
 
-func index(wr http.ResponseWriter, r *http.Request) {
-	tmp := template.Must(template.ParseFiles(("./static/layout.html")))
-	if err := tmp.ExecuteTemplate(wr, "layout.html", 1); err != nil {
-		http.Error(wr, err.Error(), http.StatusInternalServerError)
+func index(w http.ResponseWriter, r *http.Request) {
+	tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
+	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
 
