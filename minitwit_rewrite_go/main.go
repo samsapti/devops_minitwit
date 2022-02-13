@@ -6,24 +6,28 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
 
 var DATABASE = "minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
+var loggedIn = false
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 func main() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", timeline)
-	/* r.HandleFunc("/public", public_timeline)
+	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
-	r.HandleFunc("/add_message", add_message)
+	/* r.HandleFunc("/add_message", add_message)
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/register", register)
 	r.HandleFunc("/logout", logout) */
@@ -93,8 +97,55 @@ func after_request() {
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Hello world!"))
+	fmt.Println("We got a visitor from: " + r.RemoteAddr)
+	if !loggedIn {
+		http.Redirect(w, r, "/public", http.StatusOK)
+		return
+	}
+
+	/* w.Write([]byte("Hello world!"))
 	vars := mux.Vars(r)
 	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Category: %v\n", vars["category"])
+	fmt.Fprintf(w, "Category: %v\n", vars["category"]) */
+}
+
+func public_timeline(w http.ResponseWriter, r *http.Request) {
+
+	fmt.Println("public timeline!")
+}
+
+func user_timeline(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	w.WriteHeader(http.StatusOK)
+	fmt.Fprintf(w, "Category: %v\n", vars["username"])
+}
+
+func follow_user(w http.ResponseWriter, r *http.Request) {
+	if !loggedIn {
+		w.WriteHeader(401)
+	}
+	vars := mux.Vars(r)
+	whom_id := get_user_id(vars["username"])
+	if whom_id == 0 {
+		w.WriteHeader(404)
+	}
+	db := connect_db()
+	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", username)
+	checkError(err)
+	defer rv.Close()
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func login(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
+	user_id := session.Values["user_id"]
+	if user_id != 0 {
+		http.Redirect(w, r, "/", 200)
+		return
+	}
+	if r.Method == "POST" {
+		db := connect_db()
+		user := query_db("select * from user where username = ?", [session.Values[user_name]]string, true)
+	}
 }
