@@ -4,6 +4,7 @@ import (
 	"C"
 	"database/sql"
 	"fmt"
+	//"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	sqlite3 "github.com/mattn/go-sqlite3"
-    pongo2     "github.com/flosch/pongo2"
+	pongo2 	"github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 )
@@ -22,13 +23,18 @@ var DEBUG = true
 var SECRET_KEY = "development key"
 var loggedIn = false
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
 var sq = sqlite3.ErrAbort
 
 func main() {
 	r := mux.NewRouter()
-	//r.HandleFunc("/", timeline)
 	r.HandleFunc("/", index)
 	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
+
+	var loggedIn = false
+	var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
+	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
@@ -65,7 +71,7 @@ func checkError(err error) {
 }
 
 func connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
+	db, err := sql.Open("sqlite3", "DATABASE")
 	checkError(err)
 	return db
 }
@@ -78,7 +84,7 @@ func init_db() {
 }
 
 // Fix this function!
-func query_db(query string, args []string, one bool) {
+func query_db(query string, args []string, one bool) []map[interface{}]interface{} {
 	db := connect_db()
 	cur, err := db.Query(query, args)
 	checkError(err)
@@ -154,11 +160,21 @@ func login(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
 	user_id := session.Values["user_id"]
 	if user_id != 0 {
+		fmt.Println("user_id is", user_id)
 		http.Redirect(w, r, "/", 200)
 		return
 	}
 	if r.Method == "POST" {
-		db := connect_db()
-		user := query_db("select * from user where username = ?", [session.Values[user_name]]string, true)
+		user_name := session.Values["user_name"]
+		str := []string{fmt.Sprint(user_name)}
+		fmt.Println("user_name:", str)
+		user := query_db("select * from user where username = ?", str, true)
+		if user[0] == nil {
+
+		} else if user[0]["pw_hash"] == nil {
+
+		} else {
+
+		}
 	}
 }
