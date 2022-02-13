@@ -1,12 +1,16 @@
 package main
 
 import (
+	"C"
 	"database/sql"
 	"fmt"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
+
+	sqlite3 "github.com/mattn/go-sqlite3"
 
 	"github.com/gorilla/mux"
 )
@@ -15,10 +19,18 @@ var DATABASE = "minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
+var sq = sqlite3.ErrAbort
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", timeline)
+	//r.HandleFunc("/", timeline)
+	r.HandleFunc("/", index)
+	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("./static/css/"))))
+
+	//r.PathPrefix("/").HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+	//	http.ServeFile(rw, r, "./static/layout.html")
+	//})
+
 	/* r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
@@ -41,6 +53,13 @@ func main() {
 	}
 }
 
+func index(wr http.ResponseWriter, r *http.Request) {
+	tmp := template.Must(template.ParseFiles(("./static/layout.html")))
+	if err := tmp.ExecuteTemplate(wr, "layout.html", 1); err != nil {
+		http.Error(wr, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func checkError(err error) {
 	if err != nil {
 		log.Fatal("Error: ", err)
@@ -48,7 +67,7 @@ func checkError(err error) {
 }
 
 func connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
+	db, err := sql.Open("sqlite3", "DATABASE")
 	checkError(err)
 	return db
 }
