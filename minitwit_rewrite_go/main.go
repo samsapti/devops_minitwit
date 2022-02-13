@@ -65,7 +65,7 @@ func init_db() {
 }
 
 // Fix this function!
-func query_db(query string, args []string, one bool) {
+func query_db(query string, args []string, one bool) []map[interface{}]interface{} {
 	db := connect_db()
 	cur, err := db.Query(query, args)
 	checkError(err)
@@ -141,11 +141,21 @@ func login(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
 	user_id := session.Values["user_id"]
 	if user_id != 0 {
+		fmt.Println("user_id is", user_id)
 		http.Redirect(w, r, "/", 200)
 		return
 	}
 	if r.Method == "POST" {
-		db := connect_db()
-		user := query_db("select * from user where username = ?", [session.Values[user_name]]string, true)
+		user_name := session.Values["user_name"]
+		str := []string{fmt.Sprint(user_name)}
+		fmt.Println("user_name:", str)
+		user := query_db("select * from user where username = ?", str, true)
+		if user[0] == nil {
+
+		} else if user[0]["pw_hash"] == nil {
+
+		} else {
+
+		}
 	}
 }
