@@ -1,14 +1,18 @@
 package main
 
 import (
+	"C"
 	"database/sql"
 	"fmt"
+	//"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"time"
 
+	sqlite3 "github.com/mattn/go-sqlite3"
+	pongo2 	"github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 )
@@ -17,11 +21,17 @@ var DATABASE = "minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
-var loggedIn = false
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
+var sq = sqlite3.ErrAbort
 
 func main() {
 	r := mux.NewRouter()
+	r.HandleFunc("/", index)
+	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
+
+var loggedIn = false
+var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+
 	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
@@ -45,6 +55,13 @@ func main() {
 	}
 }
 
+func index(w http.ResponseWriter, r *http.Request) {
+	tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
+	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+
 func checkError(err error) {
 	if err != nil {
 		log.Fatal("Error: ", err)
@@ -52,7 +69,7 @@ func checkError(err error) {
 }
 
 func connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
+	db, err := sql.Open("sqlite3", "DATABASE")
 	checkError(err)
 	return db
 }
