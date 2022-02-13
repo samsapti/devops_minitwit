@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 
 using Microsoft.Data.Sqlite;
 using System.Text;
+using System.Collections.Generic;
 
 //using static System.Net.Mime.MediaTypeNames;
 
@@ -10,13 +11,12 @@ namespace Minitwit;
 public class Program 
 {
     static string dbPath = @"./tmp/minitwit.db";
+    static int perPage = 30;
+    static bool debug = true;
+    static string secretKey = "development key";
 
     static void Main(string[] args)
     {
-        var perPage = 30;
-        var debug = true;
-        var secretKey = "development key";
-
         var builder = WebApplication.CreateBuilder(args);
         var app = builder.Build();
 
@@ -84,14 +84,17 @@ public class Program
             }
             else
             {
-                var dict = new Dictionary<string, string>();
+                var list = new List<Dictionary<string, string>>();
                 using var reader = cmd.ExecuteReader();
                 while(reader.Read())
                 {
-                    dict.Add(reader.GetString())
+                    var dict = new Dictionary<string, string>();
+                    dict.Add("k", "v");
+                    list.Add(dict);
                 }
+
+                return list;
             }
-            
         }
     }
 
