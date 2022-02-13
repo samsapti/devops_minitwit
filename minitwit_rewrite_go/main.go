@@ -31,8 +31,8 @@ func main() {
 	r.HandleFunc("/", index)
 	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 
-	var loggedIn = false
-	var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+	//var loggedIn = false
+	//var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
@@ -89,6 +89,7 @@ func query_db(query string, args []string, one bool) []map[interface{}]interface
 	cur, err := db.Query(query, args)
 	checkError(err)
 	defer cur.Close()
+	return cur
 	if one {
 		cur.Scan()
 	}
@@ -149,11 +150,15 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 	}
 	db := connect_db()
-	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", username)
+	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", whom_id)
 	checkError(err)
 	defer rv.Close()
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func unfollow_user(w http.ResponseWriter, r *http.Request) {
+	
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
