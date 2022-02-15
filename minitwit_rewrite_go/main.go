@@ -18,7 +18,7 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
-var DATABASE = "minitwit.db"
+var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
@@ -31,7 +31,7 @@ func main() {
 	r.HandleFunc("/", index)
 	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 
-	r.HandleFunc("/", timeline)
+	//r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
@@ -55,7 +55,7 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-	tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
+	tmp := pongo2.Must(pongo2.FromFile("./static/layout.html"))
 	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -68,14 +68,14 @@ func checkError(err error) {
 }
 
 func connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", "DATABASE")
+	db, err := sql.Open("sqlite3", DATABASE)
 	checkError(err)
 	return db
 }
 
 func init_db() {
 	db := connect_db()
-	query, err := ioutil.ReadFile("schema.sql")
+	query, err := ioutil.ReadFile("../schema.sql")
 	checkError(err)
 	db.Exec(string(query))
 }
