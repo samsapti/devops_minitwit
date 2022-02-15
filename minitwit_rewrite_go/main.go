@@ -130,7 +130,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
-	// TODO: offset?
+	// offset?
 	template, err := template.ParseFiles("static/timeline.html")
 	checkError(err)
 	messages := query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", []string{session.Values["user_id"].(string), session.Values["user_id"].(string), strconv.Itoa(PER_PAGE)}, false)
