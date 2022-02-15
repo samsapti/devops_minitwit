@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 
-	//"html/template"
+	"html/template"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,7 +22,6 @@ var DATABASE = "minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
-var loggedIn = false
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 var sq = sqlite3.ErrAbort
@@ -117,30 +116,41 @@ func after_request() {
 
 func timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("We got a visitor from: " + r.RemoteAddr)
-	if !loggedIn {
+	session, _ := store.Get(r, "user-session")
+	if session.Values["user_id"] == nil {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
-
-	/* w.Write([]byte("Hello world!"))
-	vars := mux.Vars(r)
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Category: %v\n", vars["category"]) */
+	// offset?
+	// render_template
 }
 
 func public_timeline(w http.ResponseWriter, r *http.Request) {
-
 	fmt.Println("public timeline!")
+	// render_template
 }
 
 func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprintf(w, "Category: %v\n", vars["username"])
+	l := []string{vars["username"]}
+	profile_user := query_db("select * from user where username = ?", l, true)
+	if profile_user == nil {
+		w.WriteHeader(404)
+	}
+	followed := false
+	session, _ := store.Get(r, "user-session")
+	if session.Values["user_id"] != nil {
+		ql := []string{session.Values["user_id"].(string), profile_user[0]["user_id"].(string)}
+		followed = query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
+		template, err := template.ParseFiles("static/timeline.html")
+		checkError(err)
+		template.Execute()
+	}
 }
 
 func follow_user(w http.ResponseWriter, r *http.Request) {
-	if !loggedIn {
+	session, _ := store.Get(r, "user-session")
+	if session.Values["user_id"] == nil {
 		w.WriteHeader(401)
 	}
 	vars := mux.Vars(r)
@@ -149,12 +159,11 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 	}
 	db := connect_db()
-	session, _ := store.Get(r, "user-session")
 	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", session.Values["user_id"], whom_id)
 	checkError(err)
 	defer rv.Close()
-	// Add flash message
-	str := "/{username}" // TODO: format a string here containing the user_name to be used below
+	session.AddFlash("You are now following %s", vars["username"])
+	str := "/" + vars["username"]
 	http.Redirect(w, r, str, http.StatusSeeOther)
 }
 
@@ -169,7 +178,7 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 func login(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
 	user_id := session.Values["user_id"]
-	if user_id != 0 {
+	if user_id != nil {
 		fmt.Println("user_id is", user_id)
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
@@ -183,11 +192,11 @@ func login(w http.ResponseWriter, r *http.Request) {
 		} else {
 			// Add flash message
 			session.Values["user_id"] = user[0]["user_id"]
+			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 	}
-	session.Save(r, w)
 	// render_template
 }
 
@@ -198,6 +207,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 func logout(w http.ResponseWriter, r *http.Request) {
 	// Add flash message
 	session, _ := store.Get(r, "user-session")
-	session.Values["user_id"] = 0
+	session.Values["user_id"] = nil
 	http.Redirect(w, r, "/public", http.StatusSeeOther)
 }
