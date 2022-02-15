@@ -4,6 +4,7 @@ import (
 	"C"
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	"html/template"
 	"io/ioutil"
@@ -17,7 +18,6 @@ import (
 	"github.com/gorilla/sessions"
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
-import "strconv"
 
 var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
