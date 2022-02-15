@@ -4,6 +4,7 @@ import (
 	"C"
 	"database/sql"
 	"fmt"
+
 	//"html/template"
 	"io/ioutil"
 	"log"
@@ -11,10 +12,10 @@ import (
 	"os"
 	"time"
 
-	sqlite3 "github.com/mattn/go-sqlite3"
-	pongo2 	"github.com/flosch/pongo2"
+	pongo2 "github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
 var DATABASE = "minitwit.db"
@@ -31,18 +32,15 @@ func main() {
 	r.HandleFunc("/", index)
 	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 
-	//var loggedIn = false
-	//var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
-
 	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
-	/* r.HandleFunc("/add_message", add_message)
+	r.HandleFunc("/add_message", add_message)
 	r.HandleFunc("/login", login)
 	r.HandleFunc("/register", register)
-	r.HandleFunc("/logout", logout) */
+	r.HandleFunc("/logout", logout)
 	http.Handle("/", r)
 
 	srv := &http.Server{
@@ -58,10 +56,10 @@ func main() {
 }
 
 func index(w http.ResponseWriter, r *http.Request) {
-    tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
-    if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-    }
+	tmp := pongo2.Must(pongo2.FromFile(("./static/layout.html")))
+	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
 }
 
 func checkError(err error) {
@@ -89,10 +87,11 @@ func query_db(query string, args []string, one bool) []map[interface{}]interface
 	cur, err := db.Query(query, args)
 	checkError(err)
 	defer cur.Close()
-	return cur
 	if one {
 		cur.Scan()
 	}
+	var m []map[interface{}]interface{}
+	return m
 }
 
 func get_user_id(username string) int {
@@ -150,15 +149,21 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 	}
 	db := connect_db()
-	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", whom_id)
+	session, _ := store.Get(r, "user-session")
+	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", session.Values["user_id"], whom_id)
 	checkError(err)
 	defer rv.Close()
-
-	w.WriteHeader(http.StatusOK)
+	// Add flash message
+	str := "/{username}" // TODO: format a string here containing the user_name to be used below
+	http.Redirect(w, r, str, http.StatusSeeOther)
 }
 
 func unfollow_user(w http.ResponseWriter, r *http.Request) {
-	
+
+}
+
+func add_message(w http.ResponseWriter, r *http.Request) {
+
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
@@ -166,20 +171,33 @@ func login(w http.ResponseWriter, r *http.Request) {
 	user_id := session.Values["user_id"]
 	if user_id != 0 {
 		fmt.Println("user_id is", user_id)
-		http.Redirect(w, r, "/", 200)
+		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
 	if r.Method == "POST" {
-		user_name := session.Values["user_name"]
-		str := []string{fmt.Sprint(user_name)}
-		fmt.Println("user_name:", str)
-		user := query_db("select * from user where username = ?", str, true)
+		user := query_db("select * from user where username = ?", r.Form["username"], true)
 		if user[0] == nil {
 
-		} else if user[0]["pw_hash"] == nil {
+		} else if /* check password hash */ 1 == 2 {
 
 		} else {
-
+			// Add flash message
+			session.Values["user_id"] = user[0]["user_id"]
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
 		}
 	}
+	session.Save(r, w)
+	// render_template
+}
+
+func register(w http.ResponseWriter, r *http.Request) {
+
+}
+
+func logout(w http.ResponseWriter, r *http.Request) {
+	// Add flash message
+	session, _ := store.Get(r, "user-session")
+	session.Values["user_id"] = 0
+	http.Redirect(w, r, "/public", http.StatusSeeOther)
 }
