@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/sessions"
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
+import "strconv"
 
 var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
@@ -106,6 +107,14 @@ func get_user_id(username string) int {
 	return userid
 }
 
+func format_datetime() {
+
+}
+
+func gravatar_url() {
+
+}
+
 func before_request() {
 
 }
@@ -121,19 +130,30 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/public", http.StatusOK)
 		return
 	}
-	// offset?
-	// render_template
+	// TODO: offset?
+	template, err := template.ParseFiles("static/timeline.html")
+	checkError(err)
+	messages := query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", []string{session.Values["user_id"].(string), session.Values["user_id"].(string), strconv.Itoa(PER_PAGE)}, false)
+	m := map[string]interface{}{
+		"messages": messages,
+	}
+	template.Execute(w, m)
 }
 
 func public_timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("public timeline!")
-	// render_template
+	template, err := template.ParseFiles("static/timeline.html")
+	checkError(err)
+	messages := query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", []string{strconv.Itoa(PER_PAGE)}, false)
+	m := map[string]interface{}{
+		"messages": messages,
+	}
+	template.Execute(w, m)
 }
 
 func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	l := []string{vars["username"]}
-	profile_user := query_db("select * from user where username = ?", l, true)
+	profile_user := query_db("select * from user where username = ?", []string{vars["username"]}, true)
 	if profile_user == nil {
 		w.WriteHeader(404)
 	}
@@ -144,7 +164,11 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 		followed = query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
 		template, err := template.ParseFiles("static/timeline.html")
 		checkError(err)
-		template.Execute()
+		m := map[string]interface{}{
+			"followed":     followed,
+			"profile_user": profile_user,
+		}
+		template.Execute(w, m)
 	}
 }
 
