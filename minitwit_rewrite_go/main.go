@@ -29,10 +29,10 @@ var sq = sqlite3.ErrAbort
 
 func main() {
 	r := mux.NewRouter()
-	r.HandleFunc("/", index)
+	//r.HandleFunc("/", index)
 	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
 
-	//r.HandleFunc("/", timeline)
+	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
@@ -107,8 +107,8 @@ func get_user_id(username string) int {
 	return userid
 }
 
-func format_datetime() {
-
+func format_datetime(time time.Time) string {
+	return time.UTC().Format("yyyy-MM-dd @ hh:mm")
 }
 
 func gravatar_url() {
@@ -192,7 +192,22 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 }
 
 func unfollow_user(w http.ResponseWriter, r *http.Request) {
-
+	session, _ := store.Get(r, "user-session")
+	if session.Values["user_id"] == nil {
+		w.WriteHeader(401)
+	}
+	vars := mux.Vars(r)
+	whom_id := get_user_id(vars["username"])
+	if whom_id == 0 {
+		w.WriteHeader(404)
+	}
+	db := connect_db()
+	rv, err := db.Query("delete from follower where who_id=? and whom_id=?", session.Values["user_id"], whom_id)
+	checkError(err)
+	defer rv.Close()
+	session.AddFlash("You are no longer following %s", vars["username"])
+	str := "/" + vars["username"]
+	http.Redirect(w, r, str, http.StatusSeeOther)
 }
 
 func add_message(w http.ResponseWriter, r *http.Request) {
