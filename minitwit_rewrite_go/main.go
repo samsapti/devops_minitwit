@@ -18,7 +18,7 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 )
 
-var DATABASE = "minitwit.db"
+var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
