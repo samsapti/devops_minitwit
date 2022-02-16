@@ -17,6 +17,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	sqlite3 "github.com/mattn/go-sqlite3"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var DATABASE = "../tmp/minitwit.db"
@@ -37,9 +38,9 @@ func main() {
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
-	r.HandleFunc("/add_message", add_message)
-	r.HandleFunc("/login", login)
-	r.HandleFunc("/register", register)
+	r.HandleFunc("/add_message", add_message).Methods("POST")
+	r.HandleFunc("/login", login).Methods("GET", "POST")
+	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logout)
 	http.Handle("/", r)
 
@@ -108,6 +109,7 @@ func get_user_id(username string) int {
 }
 
 func format_datetime(time time.Time) string {
+	// this is probably not how formatting works, but we fix that later ok
 	return time.UTC().Format("yyyy-MM-dd @ hh:mm")
 }
 
@@ -222,30 +224,81 @@ func login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+	var error string
 	if r.Method == "POST" {
 		user := query_db("select * from user where username = ?", r.Form["username"], true)
 		if user[0] == nil {
-
-		} else if /* check password hash */ 1 == 2 {
-
+			error = "Invalid username"
+		} else if check_password_hash(r.Form["password"][0], user[0]["pw_hash"].(string)) {
+			error = "Invalid password"
 		} else {
-			// Add flash message
+			session.AddFlash("You were logged in")
 			session.Values["user_id"] = user[0]["user_id"]
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
 	}
-	// render_template
+	template, err := template.ParseFiles("static/login.html")
+	checkError(err)
+	m := map[string]interface{}{
+		"error": error,
+	}
+	template.Execute(w, m)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-
+	session, _ := store.Get(r, "user-session")
+	user_id := session.Values["user_id"]
+	if user_id != nil {
+		http.Redirect(w, r, "/", http.StatusSeeOther)
+		return
+	}
+	var error string
+	if r.Method == "POST" {
+		if r.Form["username"] == nil {
+			error = "You have to enter a username"
+		} else if r.Form["email"] == nil /*|| !r.Form["email"].contains("@")*/ {
+			error = "You have to enter a valid email address"
+		} else if r.Form["password"] == nil {
+			error = "You have to enter a password"
+		} else if r.Form["password"] != nil /*r.Form["password2"] */ {
+			error = "The two passwords do not match"
+		} else if get_user_id(r.Form["username"][0]) != 0 {
+			error = "The username is already taken"
+		} else {
+			db := connect_db()
+			hashed_pw, err := generate_password_hash(r.Form["password"][0])
+			checkError(err)
+			rv, err := db.Query("insert into user (username, email, pw_hash) values (?, ?, ?)", r.Form["username"], r.Form["email"], hashed_pw)
+			checkError(err)
+			defer rv.Close()
+			session.AddFlash("You were successfully registered and can login now")
+			http.Redirect(w, r, "/login", http.StatusSeeOther)
+			return
+		}
+	}
+	template, err := template.ParseFiles("static/register.html")
+	checkError(err)
+	m := map[string]interface{}{
+		"error": error,
+	}
+	template.Execute(w, m)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-	// Add flash message
 	session, _ := store.Get(r, "user-session")
+	session.AddFlash("You were logged in")
 	session.Values["user_id"] = nil
 	http.Redirect(w, r, "/public", http.StatusSeeOther)
+}
+
+// The two functions below have been copied from: https://gowebexamples.com/password-hashing/
+func generate_password_hash(password string) (string, error) {
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	return string(bytes), err
+}
+func check_password_hash(password, hash string) bool {
+	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
+	return err == nil
 }
