@@ -19,6 +19,10 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
+import (
+	"crypto/md5"
+	"io"
+)
 
 var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
@@ -113,8 +117,10 @@ func format_datetime(time time.Time) string {
 	return time.UTC().Format("yyyy-MM-dd @ hh:mm")
 }
 
-func gravatar_url() {
-
+func gravatar_url(email string, size int) string {
+	md := md5.New()
+	io.WriteString(md, "email")
+	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", md.Sum(nil), size)
 }
 
 func before_request() {
@@ -213,7 +219,18 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 }
 
 func add_message(w http.ResponseWriter, r *http.Request) {
-
+	session, _ := store.Get(r, "user-session")
+	if session.Values["user_id"] == nil {
+		w.WriteHeader(401)
+	}
+	if r.Form["text"] != nil {
+		db := connect_db()
+		rv, err := db.Query("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", session.Values["user_id"], r.Form["text"], time.Now())
+		checkError(err)
+		defer rv.Close()
+		session.AddFlash("Your message was recorded")
+	}
+	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
