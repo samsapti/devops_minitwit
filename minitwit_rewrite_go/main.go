@@ -161,11 +161,12 @@ func format_datetime(time time.Time) string {
 	return time.UTC().Format("2006-01-02 @ 15:04")
 }
 
-// Fix this too
+// Default size: 80
 func gravatar_url(email string, size int) string {
+	email = strings.TrimSpace(email)
 	md := md5.New()
 	io.WriteString(md, "email")
-	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", md.Sum(nil), size)
+	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", string(md.Sum(nil)), size)
 }
 
 func before_request() {
