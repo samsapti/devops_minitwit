@@ -1,15 +1,22 @@
 {% extends "layout.html" %}
+
 {% block title %}
-  {% if request.endpoint == 'public_timeline' %}
+  {% if request.endpoint == 'public' %}
     Public Timeline
-  {% elif request.endpoint == 'user_timeline' %}
+
+  {% elif request.endpoint == 'user' %}
     {{ profile_user.username }}'s Timeline
+
   {% else %}
     My Timeline
+
   {% endif %}
 {% endblock %}
+
+
 {% block body %}
   <h2>{{ self.title() }}</h2>
+
   {% if g.user %}
     {% if request.endpoint == 'user_timeline' %}
       <div class=followstatus>
@@ -25,7 +32,8 @@
           }}">Follow user</a>.
       {% endif %}
       </div>
-    {% elif request.endpoint == 'timeline' %}
+    
+      {% elif request.endpoint == 'timeline' %}
       <div class=twitbox>
         <h3>What's on your mind {{ g.user.username }}?</h3>
         <form action="{{ url_for('add_message') }}" method=post>
@@ -35,6 +43,7 @@
       </div>
     {% endif %}
   {% endif %}
+
   <ul class=messages>
   {% for message in messages %}
     <li><img src="{{ message.email|gravatar(size=48) }}"><p>
@@ -46,4 +55,5 @@
     <li><em>There's no message so far.</em>
   {% endfor %}
   </ul>
+  
 {% endblock %}

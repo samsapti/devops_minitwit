@@ -44,6 +44,7 @@ func main() {
 	r.HandleFunc("/login", login).Methods("GET", "POST")
 	r.HandleFunc("/register", register).Methods("GET", "POST")
 	r.HandleFunc("/logout", logout)
+	r.HandleFunc("/favicon.ico", favicon)
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
@@ -61,6 +62,10 @@ func main() {
 	}
 }
 
+func favicon(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func index(w http.ResponseWriter, r *http.Request) {
 	tmp := pongo2.Must(pongo2.FromFile("./static/layout.html"))
 	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
@@ -70,7 +75,7 @@ func index(w http.ResponseWriter, r *http.Request) {
 
 func checkError(err error) {
 	if err != nil {
-		log.Fatal("Error: ", err)
+		log.Printf("Error: %s\n", err)
 	}
 }
 
@@ -97,23 +102,27 @@ func query_db(query string, args []interface{}, one bool) []map[interface{}]inte
 			log.Fatalln("ERROR: unsupported argument type:", reflect.TypeOf(args[i]))
 		}
 	}
+
 	db := connect_db()
 	rows, err := db.Query(query)
-	checkError(err)
 	defer rows.Close()
+	checkError(err)
+
 	cols, err2 := rows.Columns()
 	checkError(err2)
 	values := make([]interface{}, len(cols))
+
 	for i := range cols {
 		values[i] = new(sql.RawBytes)
 	}
+
 	var m []map[interface{}]interface{}
-	fmt.Printf("---------\nAttempted query: %s\n---------\n", query)
+	log.Printf("---------\nAttempted query: %s\n---------\n", query)
 	for rows.Next() {
 		err = rows.Scan(values...)
-		for i := range values {
-			fmt.Println("values[", i, "] =", values[i])
-		}
+		//for i := range values {
+		//    fmt.Println("values[", i, "] =", values[i])
+		//}
 		// Now you can check each element of vals for nil-ness,
 		// and you can use type introspection and type assertions
 		// to fetch the column into a typed variable.
@@ -185,21 +194,27 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	profile_user := query_db("select * from user where username = ?", []interface{}{vars["username"]}, true)
+
 	if len(profile_user) < 1 {
 		w.WriteHeader(404)
 	}
+
 	followed := false
 	session, _ := store.Get(r, "user-session")
+
 	if session.Values["user_id"] != nil {
 		ql := []interface{}{"", "" /*, session.Values["user_id"].(string), profile_user[0]["user_id"].(string)*/}
 		followed = query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
 	}
+
 	template, err := template.ParseFiles("static/timeline.html")
 	checkError(err)
+
 	m := map[string]interface{}{
 		"followed":     followed,
 		"profile_user": profile_user,
 	}
+
 	template.Execute(w, m)
 }
 
