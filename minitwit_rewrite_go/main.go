@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	pongo2 "github.com/flosch/pongo2"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	sqlite3 "github.com/mattn/go-sqlite3"
@@ -33,10 +32,29 @@ var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 var sq = sqlite3.ErrAbort
 
+type User struct {
+	id       int
+	username string
+	email    string
+	pw_hash  string
+}
+
+type Follower struct {
+	follower_id int
+	followed_id int
+}
+
+type Message struct {
+	message_id int
+	author_id  int
+	text       string
+	pub_date   int
+	flagged    int
+}
+
 func main() {
 	r := mux.NewRouter()
-	//r.HandleFunc("/", index)
-	r.PathPrefix("/styles/").Handler(http.StripPrefix("/styles/", http.FileServer(http.Dir("/static/"))))
+	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
 	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
@@ -64,13 +82,6 @@ func main() {
 
 func favicon(w http.ResponseWriter, r *http.Request) {
 
-}
-
-func index(w http.ResponseWriter, r *http.Request) {
-	tmp := pongo2.Must(pongo2.FromFile("./static/layout.html"))
-	if err := tmp.ExecuteWriter(pongo2.Context{"query": r.FormValue("query")}, w); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
 }
 
 func checkError(err error) {
