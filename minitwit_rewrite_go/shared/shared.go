@@ -2,14 +2,17 @@ package shared
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"reflect"
+	"strconv"
 	"strings"
 
+	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
 
-var DATABASE = "../tmp/minitwit.db"
+var DATABASE = "../../tmp/minitwit.db"
 
 type User struct {
 	Id       int    `json:"id"`
@@ -50,7 +53,7 @@ func Query_db(query string, args []interface{}, one bool) []map[interface{}]inte
 		if reflect.TypeOf(args[i]).Kind() == reflect.String {
 			query = strings.Replace(query, "?", "'"+args[i].(string)+"'", 1)
 		} else if reflect.TypeOf(args[i]).Kind() == reflect.Int {
-			query = strings.Replace(query, "?", args[i].(string), 1)
+			query = strings.Replace(query, "?", strconv.Itoa(args[i].(int)), 1)
 		} else {
 			log.Printf("ERROR: unsupported argument type: %A\n", reflect.TypeOf(args[i]))
 		}
@@ -86,9 +89,11 @@ func Query_db(query string, args []interface{}, one bool) []map[interface{}]inte
 		if CheckError(err3) {
 			continue
 		}
-		//for i := range values {
-		//    fmt.Println("values[", i, "] =", values[i])
-		//}
+
+		for i := range values {
+			fmt.Println("values[", i, "] =", values[i])
+		}
+
 		// Now you can check each element of vals for nil-ness,
 		// and you can use type introspection and type assertions
 		// to fetch the column into a typed variable.
