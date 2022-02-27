@@ -9,7 +9,7 @@ import (
 
 	"github.com/gorilla/mux"
 
-	mt "minitwit_rewrite"
+	"minitwit_rewrite/shared"
 )
 
 var LATEST int = 0
@@ -38,7 +38,7 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 }
 
 func get_user_id(username string) int {
-	rv := mt.Query_db("SELECT user.user_id FROM user WHERE username = ?", []interface{}{username}, true)
+	rv := shared.Query_db("SELECT user.user_id FROM user WHERE username = ?", []interface{}{username}, true)
 
 	if rv != nil {
 		return rv[0]["user_id"].(int)
@@ -85,12 +85,12 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r_data.username) == -1 {
 			error = "The username is already taken"
 		} else {
-			db := mt.Connect_db()
-			hashed_pw, err := mt.Generate_password_hash(r_data.pwd)
-			mt.CheckError(err)
+			db := shared.Connect_db()
+			hashed_pw, err := shared.Generate_password_hash(r_data.pwd)
+			shared.CheckError(err)
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
 			rv, err := db.Query(query, r_data.username, r_data.email, hashed_pw)
-			mt.CheckError(err)
+			shared.CheckError(err)
 			defer rv.Close()
 		}
 	}
@@ -123,15 +123,16 @@ func messages(w http.ResponseWriter, r *http.Request) []byte {
 	no_msgs := val
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
-		messages := mt.Query_db(query, []interface{}{no_msgs}, true)
+		messages := shared.Query_db(query, []interface{}{no_msgs}, true)
 
 		// Jeg har ingen idé om det her virker som det skal, eller overhovedet..
-		var filtered_msgs []mt.Message
+		// Jeg har ændret det så det nu compiler. Ser det rigtigt ud? - Joachim
+		var filtered_msgs []shared.Message
 		for m := range messages {
-			var filtered_msg mt.Message
-			filtered_msg.Text = m["text"].(string)
-			filtered_msg.Pub_date = m["pub_date"].(int)
-			filtered_msg.Author_id = m["user_id"].(int)
+			var filtered_msg shared.Message
+			filtered_msg.Text = messages[m]["text"].(string)
+			filtered_msg.Pub_date = messages[m]["pub_date"].(int)
+			filtered_msg.Author_id = messages[m]["user_id"].(int)
 			filtered_msgs = append(filtered_msgs, filtered_msg)
 		}
 
@@ -139,6 +140,8 @@ func messages(w http.ResponseWriter, r *http.Request) []byte {
 
 		return resp
 	}
+
+	return nil
 }
 
 func messages_per_user(w http.ResponseWriter, r *http.Request) []byte {
@@ -161,12 +164,12 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) []byte {
 
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user  WHERE message.flagged = 0 AND user.user_id = message.author_id AND user.user_id = ? ORDER BY message.pub_date DESC LIMIT ?"
-		messages := mt.Query_db(query, []interface{}{no_msgs}, true)
+		messages := shared.Query_db(query, []interface{}{no_msgs}, true)
 
-		var filtered_msgs []mt.Message
+		var filtered_msgs []shared.Message
 
 		for _, m := range messages {
-			filtered_msg := mt.Message{
+			filtered_msg := shared.Message{
 				Message_id: m["message_id"].(int),
 				Author_id:  m["author_id"].(int),
 				Text:       m["text"].(string),
@@ -182,4 +185,6 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) []byte {
 	} else if r.Method == "POST" {
 		return nil
 	}
+
+	return nil
 }

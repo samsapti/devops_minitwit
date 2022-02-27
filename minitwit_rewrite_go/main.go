@@ -1,8 +1,6 @@
 package main
 
 import (
-	"C"
-	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -14,7 +12,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"reflect"
 	"strings"
 	"time"
 
@@ -22,35 +19,16 @@ import (
 	"github.com/gorilla/sessions"
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
+
+	"minitwit_rewrite/shared"
 )
 
-var DATABASE = "../tmp/minitwit.db"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
 var sq = sqlite3.ErrAbort
-
-type User struct {
-	Id       int    `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Pw_hash  string `json:"pw_hash"`
-}
-
-type Follower struct {
-	Follower_id int `json:"follower_id"`
-	Followed_id int `json:"followed_id"`
-}
-
-type Message struct {
-	Message_id int    `json:"message_id"`
-	Author_id  int    `json:"author_id"`
-	Text       string `json:"text"`
-	Pub_date   int    `json:"pub_date"`
-	Flagged    int    `json:"flagged"`
-}
 
 func main() {
 	r := mux.NewRouter()
@@ -84,92 +62,26 @@ func favicon(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func CheckError(err error) bool {
-	if err != nil {
-		log.Printf("Error: %s\n", err)
-	}
-
-	return err != nil
-}
-
-func Connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
-	CheckError(err)
-	return db
-}
-
 func init_db() {
-	db := Connect_db()
+	db := shared.Connect_db()
 	query, err := ioutil.ReadFile("../schema.sql")
 
-	if CheckError(err) {
+	if shared.CheckError(err) {
 		return
 	}
 
 	db.Exec(string(query))
 }
 
-func Query_db(query string, args []interface{}, one bool) []map[interface{}]interface{} {
-	for i := range args {
-		if reflect.TypeOf(args[i]).Kind() == reflect.String {
-			query = strings.Replace(query, "?", "'"+args[i].(string)+"'", 1)
-		} else if reflect.TypeOf(args[i]).Kind() == reflect.Int {
-			query = strings.Replace(query, "?", args[i].(string), 1)
-		} else {
-			log.Printf("ERROR: unsupported argument type: %A\n", reflect.TypeOf(args[i]))
-		}
-	}
-
-	db := Connect_db()
-	rows, err := db.Query(query)
-
-	if CheckError(err) {
-		return nil
-	} else {
-		defer rows.Close()
-	}
-
-	cols, err2 := rows.Columns()
-
-	if CheckError(err2) {
-		return nil
-	}
-
-	values := make([]interface{}, len(cols))
-
-	for i := range cols {
-		values[i] = new(sql.RawBytes)
-	}
-
-	var m []map[interface{}]interface{}
-	log.Printf("---------\nAttempted query: %s\n---------\n", query)
-
-	for rows.Next() {
-		err3 := rows.Scan(values...)
-
-		if CheckError(err3) {
-			continue
-		}
-		//for i := range values {
-		//    fmt.Println("values[", i, "] =", values[i])
-		//}
-		// Now you can check each element of vals for nil-ness,
-		// and you can use type introspection and type assertions
-		// to fetch the column into a typed variable.
-	}
-
-	return m
-}
-
 func get_user_id(username string) int {
-	db := Connect_db()
+	db := shared.Connect_db()
 	rv, err := db.Query("select user_id from user where username = ?", username)
-	CheckError(err)
+	shared.CheckError(err)
 	defer rv.Close()
 	var userid int
 	for rv.Next() {
 		err := rv.Scan(&userid)
-		CheckError(err)
+		shared.CheckError(err)
 	}
 	return userid
 }
@@ -203,8 +115,8 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	// offset?
 	template, err := template.ParseFiles("static/timeline.html")
-	CheckError(err)
-	messages := Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", []interface{}{ /*session.Values["user_id"].(string), session.Values["user_id"].(string)*/ "", "", strconv.Itoa(PER_PAGE)}, false)
+	shared.CheckError(err)
+	messages := shared.Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", []interface{}{ /*session.Values["user_id"].(string), session.Values["user_id"].(string)*/ "", "", strconv.Itoa(PER_PAGE)}, false)
 	m := map[string]interface{}{
 		"messages": messages,
 	}
@@ -214,8 +126,8 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 func public_timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("public timeline!")
 	template, err := template.ParseFiles("static/timeline.html")
-	CheckError(err)
-	messages := Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", []interface{}{strconv.Itoa(PER_PAGE)}, false)
+	shared.CheckError(err)
+	messages := shared.Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", []interface{}{strconv.Itoa(PER_PAGE)}, false)
 	m := map[string]interface{}{
 		"messages": messages,
 	}
@@ -224,7 +136,7 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 
 func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	profile_user := Query_db("select * from user where username = ?", []interface{}{vars["username"]}, true)
+	profile_user := shared.Query_db("select * from user where username = ?", []interface{}{vars["username"]}, true)
 
 	if len(profile_user) < 1 {
 		w.WriteHeader(404)
@@ -235,11 +147,11 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 
 	if session.Values["user_id"] != nil {
 		ql := []interface{}{"", "" /*, session.Values["user_id"].(string), profile_user[0]["user_id"].(string)*/}
-		followed = Query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
+		followed = shared.Query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
 	}
 
 	template, err := template.ParseFiles("static/timeline.html")
-	CheckError(err)
+	shared.CheckError(err)
 
 	m := map[string]interface{}{
 		"followed":     followed,
@@ -259,9 +171,9 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 	if whom_id == 0 {
 		w.WriteHeader(404)
 	}
-	db := Connect_db()
+	db := shared.Connect_db()
 	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", session.Values["user_id"], whom_id)
-	CheckError(err)
+	shared.CheckError(err)
 	defer rv.Close()
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
@@ -278,9 +190,9 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 	if whom_id == 0 {
 		w.WriteHeader(404)
 	}
-	db := Connect_db()
+	db := shared.Connect_db()
 	rv, err := db.Query("delete from follower where who_id=? and whom_id=?", session.Values["user_id"], whom_id)
-	CheckError(err)
+	shared.CheckError(err)
 	defer rv.Close()
 	session.AddFlash("You are no longer following %s", vars["username"])
 	str := "/" + vars["username"]
@@ -293,9 +205,9 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
 	}
 	if r.Form["text"] != nil {
-		db := Connect_db()
+		db := shared.Connect_db()
 		rv, err := db.Query("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", session.Values["user_id"], "" /*r.Form["text"]*/, time.Now())
-		CheckError(err)
+		shared.CheckError(err)
 		defer rv.Close()
 		session.AddFlash("Your message was recorded")
 	}
@@ -312,7 +224,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	var error string
 	if r.Method == "POST" {
-		user := Query_db("select * from user where username = ?", []interface{}{""} /*r.Form["username"]*/, true)
+		user := shared.Query_db("select * from user where username = ?", []interface{}{""} /*r.Form["username"]*/, true)
 		if user[0] == nil {
 			error = "Invalid username"
 		} else if check_password_hash(r.Form["password"][0], user[0]["pw_hash"].(string)) {
@@ -326,7 +238,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	template, err := template.ParseFiles("static/login.html")
-	CheckError(err)
+	shared.CheckError(err)
 	m := map[string]interface{}{
 		"error": error,
 	}
@@ -353,11 +265,11 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r.Form["username"][0]) != 0 {
 			error = "The username is already taken"
 		} else {
-			db := Connect_db()
-			hashed_pw, err := Generate_password_hash(r.Form["password"][0])
-			CheckError(err)
+			db := shared.Connect_db()
+			hashed_pw, err := shared.Generate_password_hash(r.Form["password"][0])
+			shared.CheckError(err)
 			rv, err := db.Query("insert into user (username, email, pw_hash) values (?, ?, ?)", r.Form["username"], r.Form["email"], hashed_pw)
-			CheckError(err)
+			shared.CheckError(err)
 			defer rv.Close()
 			session.AddFlash("You were successfully registered and can login now")
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -365,7 +277,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	template, err := template.ParseFiles("static/register.html")
-	CheckError(err)
+	shared.CheckError(err)
 	m := map[string]interface{}{
 		"error": error,
 	}
@@ -379,11 +291,7 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/public", http.StatusSeeOther)
 }
 
-// The two functions below have been copied from: https://gowebexamples.com/password-hashing/
-func Generate_password_hash(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
+// The function below has been copied from: https://gowebexamples.com/password-hashing/
 func check_password_hash(password, hash string) bool {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 	return err == nil
