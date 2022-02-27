@@ -1,20 +1,21 @@
+{{define "layout"}}
 <!doctype html>
-<title>{% block title %}Welcome{% endblock %} | MiniTwit</title>
+<title>{{block "title" .}}Welcome{{end}} | MiniTwit</title>
 <link type=text/css href="/static/css/style.css">
 <div class=page>
   <h1>MiniTwit</h1>
   <div class=navigation>
-  {% if g.user %}
-    <a href="{{ url_for('timeline') }}">my timeline</a> |
-    <a href="{{ url_for('public_timeline') }}">public timeline</a> |
-    <a href="{{ url_for('logout') }}">sign out [{{ g.user.username }}]</a>
-  {% else %}
-    <a href="{{ url_for('public_timeline') }}">public timeline</a> |
-    <a href="{{ url_for('register') }}">sign up</a> |
-    <a href="{{ url_for('login') }}">sign in</a>
-  {% endif %}
+  {{ if .User }}
+    <a href="{{/timeline}}">my timeline</a> |
+    <a href="{{/public}}">public timeline</a> |
+    <a href="{{/logout}}">sign out [{{ User.username }}]</a>
+  {{else}}
+    <a href="{{/public}}">public timeline</a> |
+    <a href="{{/register}}">sign up</a> |
+    <a href="{{/login}">sign in</a>
+  {{end}}
   </div>
-  {% with flashes = get_flashed_messages() %}
+  {% with flashes = get_flashed_messages() %} <!-- I have no clue about what to do with this one-->
     {% if flashes %}
       <ul class=flashes>
       {% for message in flashes %}
@@ -24,7 +25,7 @@
     {% endif %}
   {% endwith %}
   <div class=body>
-  {% block body %}{% endblock %}
+  {{block "body" .}}{{end}}
   </div>
   <div class=footer>
     MiniTwit &mdash; A Flask Application
