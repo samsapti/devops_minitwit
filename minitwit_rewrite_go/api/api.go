@@ -72,50 +72,58 @@ func get_user_id(username string) int {
 	return -1
 }
 
-func update_latest(w http.ResponseWriter, r *http.Request) {
+func update_latest(r *http.Request) {
+	params := r.URL.Query()
 	def := -1
-	vars := mux.Vars(r)
 	val := def
-	if len(vars) != 0 {
-		val, _ = strconv.Atoi(vars["latest"])
+	if params.Get("latest") != "" {
+		val, _ = strconv.Atoi(params.Get("latest"))
 	}
-	LATEST = val
-}
 
+	if val != -1 {
+		LATEST = val
+	}
+}
 func get_latest(w http.ResponseWriter, r *http.Request) {
-	resp, _ := json.Marshal(LATEST)
+	w.Header().Set("Content-Type", "application/json")
+	latest_struct := struct {
+		Latest int `json:"latest"`
+	}{
+		LATEST,
+	}
+	resp, _ := json.Marshal(latest_struct)
 	w.Write(resp)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	request_data := json.NewDecoder(r.Body)
 
 	r_data := struct {
-		username string `json:"username"`
-		email    string `json:"email"`
-		pwd      string `json:"pwd"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Pwd      string `json:"pwd"`
 	}{}
 
 	request_data.Decode(&r_data)
 
 	var error string
 	if r.Method == "POST" {
-		if r_data.username == "" {
+		if r_data.Username == "" {
 			error = "You have to enter a username"
-		} else if r_data.email == "" || !strings.Contains(r_data.email, "@") {
+		} else if r_data.Email == "" || !strings.Contains(r_data.Email, "@") {
 			error = "You have to enter a valid email address"
-		} else if r_data.pwd == "" {
+		} else if r_data.Pwd == "" {
 			error = "You have to enter a password"
-		} else if get_user_id(r_data.username) != -1 {
+		} else if get_user_id(r_data.Username) != -1 {
 			error = "The username is already taken"
 		} else {
 			db := mt.Connect_db()
-			hashed_pw, err := mt.Generate_password_hash(r_data.pwd)
+			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
-			rv, err := db.Query(query, r_data.username, r_data.email, hashed_pw)
+			rv, err := db.Query(query, r_data.Username, r_data.Email, hashed_pw)
 			mt.CheckError(err)
 			defer rv.Close()
 		}
@@ -134,7 +142,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 	if not_from_sim_response != nil {
@@ -174,7 +182,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages_per_user(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 
@@ -236,7 +244,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 func follow(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
-	update_latest(w, r)
+	update_latest(r)
 	var status = 0
 	decoder := json.NewDecoder(r.Body)
 
