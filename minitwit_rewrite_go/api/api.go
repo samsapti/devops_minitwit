@@ -84,9 +84,14 @@ func update_latest(r *http.Request) {
 		LATEST = val
 	}
 }
-
 func get_latest(w http.ResponseWriter, r *http.Request) {
-	resp, _ := json.Marshal(LATEST)
+	w.Header().Set("Content-Type", "application/json")
+	latest_struct := struct {
+		Latest int `json:"latest"`
+	}{
+		LATEST,
+	}
+	resp, _ := json.Marshal(latest_struct)
 	w.Write(resp)
 }
 
@@ -96,29 +101,29 @@ func register(w http.ResponseWriter, r *http.Request) {
 	request_data := json.NewDecoder(r.Body)
 
 	r_data := struct {
-		username string `json:"username"`
-		email    string `json:"email"`
-		pwd      string `json:"pwd"`
+		Username string `json:"username"`
+		Email    string `json:"email"`
+		Pwd      string `json:"pwd"`
 	}{}
 
 	request_data.Decode(&r_data)
 
 	var error string
 	if r.Method == "POST" {
-		if r_data.username == "" {
+		if r_data.Username == "" {
 			error = "You have to enter a username"
-		} else if r_data.email == "" || !strings.Contains(r_data.email, "@") {
+		} else if r_data.Email == "" || !strings.Contains(r_data.Email, "@") {
 			error = "You have to enter a valid email address"
-		} else if r_data.pwd == "" {
+		} else if r_data.Pwd == "" {
 			error = "You have to enter a password"
-		} else if get_user_id(r_data.username) != -1 {
+		} else if get_user_id(r_data.Username) != -1 {
 			error = "The username is already taken"
 		} else {
 			db := mt.Connect_db()
-			hashed_pw, err := mt.Generate_password_hash(r_data.pwd)
+			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
-			rv, err := db.Query(query, r_data.username, r_data.email, hashed_pw)
+			rv, err := db.Query(query, r_data.Username, r_data.Email, hashed_pw)
 			mt.CheckError(err)
 			defer rv.Close()
 		}
