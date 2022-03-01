@@ -72,14 +72,17 @@ func get_user_id(username string) int {
 	return -1
 }
 
-func update_latest(w http.ResponseWriter, r *http.Request) {
+func update_latest(r *http.Request) {
+	params := r.URL.Query()
 	def := -1
-	vars := mux.Vars(r)
 	val := def
-	if len(vars) != 0 {
-		val, _ = strconv.Atoi(vars["latest"])
+	if params.Get("latest") != "" {
+		val, _ = strconv.Atoi(params.Get("latest"))
 	}
-	LATEST = val
+
+	if val != -1 {
+		LATEST = val
+	}
 }
 
 func get_latest(w http.ResponseWriter, r *http.Request) {
@@ -88,7 +91,7 @@ func get_latest(w http.ResponseWriter, r *http.Request) {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	request_data := json.NewDecoder(r.Body)
 
@@ -134,7 +137,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 	if not_from_sim_response != nil {
@@ -174,7 +177,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages_per_user(w http.ResponseWriter, r *http.Request) {
-	update_latest(w, r)
+	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 
@@ -236,7 +239,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 func follow(w http.ResponseWriter, r *http.Request) {
 	username := mux.Vars(r)["username"]
-	update_latest(w, r)
+	update_latest(r)
 	var status = 0
 	decoder := json.NewDecoder(r.Body)
 
