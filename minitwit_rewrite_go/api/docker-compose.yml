@@ -1,0 +1,9 @@
+version: "3.7"
+
+services:
+  minitwit-api:
+    image: minitwit-go
+    container_name: minitwit-api
+    restart: unless-stopped
+    ports:
+      - 8000:8000
