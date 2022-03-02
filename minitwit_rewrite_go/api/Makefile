@@ -1,10 +1,10 @@
 .PHONY: build run stop
 
 build:
-	docker build -t minitwit-go .
+	docker build --no-cache -t minitwit-go .
 
 run:
-	docker run -d --rm -p 8000:8000 --name minitwit minitwit-go
+	docker-compose up -d
 
 stop:
-	docker stop minitwit
+	docker-compose down
