@@ -2,7 +2,6 @@ package shared
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"reflect"
 	"strconv"
@@ -48,7 +47,7 @@ func Connect_db() *sql.DB {
 	return db
 }
 
-func Query_db(query string, args []interface{}, one bool) []map[interface{}]interface{} {
+func Query_db(query string, args []interface{}, one bool) []map[string]interface{} {
 	for i := range args {
 		if reflect.TypeOf(args[i]).Kind() == reflect.String {
 			query = strings.Replace(query, "?", "'"+args[i].(string)+"'", 1)
@@ -80,26 +79,27 @@ func Query_db(query string, args []interface{}, one bool) []map[interface{}]inte
 		values[i] = new(sql.RawBytes)
 	}
 
-	var m []map[interface{}]interface{}
+	var dicts []map[string]interface{}
 	log.Printf("---------\nAttempted query: %s\n---------\n", query)
 
 	for rows.Next() {
-		err3 := rows.Scan(values...)
-
-		if CheckError(err3) {
+		err = rows.Scan(values...)
+		if CheckError(err) {
 			continue
 		}
 
+		var m map[string]interface{}
+
 		for i := range values {
-			fmt.Println("values[", i, "] =", values[i])
+			m[cols[i]] = values[i]
 		}
 
-		// Now you can check each element of vals for nil-ness,
-		// and you can use type introspection and type assertions
-		// to fetch the column into a typed variable.
+		log.Println(m)
+
+		dicts = append(dicts, m)
 	}
 
-	return m
+	return dicts
 }
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/
