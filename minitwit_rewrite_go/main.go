@@ -1,8 +1,8 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
-	"strconv"
 
 	"crypto/md5"
 	"encoding/hex"
@@ -28,6 +28,8 @@ var DEBUG = true
 var SECRET_KEY = "development key"
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
+var db *sql.DB
+
 var sq = sqlite3.ErrAbort
 
 func main() {
@@ -46,6 +48,8 @@ func main() {
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
 	http.Handle("/", r)
 
+	db = shared.Connect_db()
+
 	srv := &http.Server{
 		Handler: r,
 		Addr:    "0.0.0.0:8000",
@@ -63,7 +67,6 @@ func favicon(w http.ResponseWriter, r *http.Request) {
 }
 
 func init_db() {
-	db := shared.Connect_db()
 	query, err := ioutil.ReadFile("../schema.sql")
 
 	if shared.CheckError(err) {
@@ -74,7 +77,6 @@ func init_db() {
 }
 
 func get_user_id(username string) int {
-	db := shared.Connect_db()
 	rv, err := db.Query("select user_id from user where username = ?", username)
 	shared.CheckError(err)
 	defer rv.Close()
@@ -116,7 +118,10 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	// offset?
 	template, err := template.ParseFiles("static/timeline.html")
 	shared.CheckError(err)
-	messages := shared.Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", []interface{}{ /*session.Values["user_id"].(string), session.Values["user_id"].(string)*/ "", "", strconv.Itoa(PER_PAGE)}, false)
+
+	rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", "", "", PER_PAGE) /*session.Values["user_id"].(string), session.Values["user_id"].(string)*/
+	messages := shared.HandleQuery(rows, err)
+
 	m := map[string]interface{}{
 		"messages": messages,
 	}
@@ -127,7 +132,10 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("public timeline!")
 	template, err := template.ParseFiles("static/timeline.html")
 	shared.CheckError(err)
-	messages := shared.Query_db("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", []interface{}{strconv.Itoa(PER_PAGE)}, false)
+
+	rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", PER_PAGE)
+	messages := shared.HandleQuery(rows, err)
+
 	m := map[string]interface{}{
 		"messages": messages,
 	}
@@ -136,7 +144,9 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 
 func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	profile_user := shared.Query_db("select * from user where username = ?", []interface{}{vars["username"]}, true)
+
+	rows, err := db.Query("select * from user where username = ?", vars["username"])
+	profile_user := shared.HandleQuery(rows, err)
 
 	if len(profile_user) < 1 {
 		w.WriteHeader(404)
@@ -146,8 +156,9 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
 
 	if session.Values["user_id"] != nil {
-		ql := []interface{}{"", "" /*, session.Values["user_id"].(string), profile_user[0]["user_id"].(string)*/}
-		followed = shared.Query_db("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", ql, true) != nil
+		/*, session.Values["user_id"].(string), profile_user[0]["user_id"].(string)*/
+		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", "", "")
+		followed = shared.HandleQuery(rows, err) != nil
 	}
 
 	template, err := template.ParseFiles("static/timeline.html")
@@ -171,7 +182,6 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 	if whom_id == 0 {
 		w.WriteHeader(404)
 	}
-	db := shared.Connect_db()
 	rv, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", session.Values["user_id"], whom_id)
 	shared.CheckError(err)
 	defer rv.Close()
@@ -190,7 +200,6 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 	if whom_id == 0 {
 		w.WriteHeader(404)
 	}
-	db := shared.Connect_db()
 	rv, err := db.Query("delete from follower where who_id=? and whom_id=?", session.Values["user_id"], whom_id)
 	shared.CheckError(err)
 	defer rv.Close()
@@ -205,7 +214,6 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(401)
 	}
 	if r.Form["text"] != nil {
-		db := shared.Connect_db()
 		rv, err := db.Query("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", session.Values["user_id"], "" /*r.Form["text"]*/, time.Now())
 		shared.CheckError(err)
 		defer rv.Close()
@@ -224,7 +232,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	var error string
 	if r.Method == "POST" {
-		user := shared.Query_db("select * from user where username = ?", []interface{}{""} /*r.Form["username"]*/, true)
+		rows, err := db.Query("select * from user where username = ?", "") //r.Form["username"]
+		user := shared.HandleQuery(rows, err)
+
 		if user[0] == nil {
 			error = "Invalid username"
 		} else if check_password_hash(r.Form["password"][0], user[0]["pw_hash"].(string)) {
@@ -265,7 +275,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r.Form["username"][0]) != 0 {
 			error = "The username is already taken"
 		} else {
-			db := shared.Connect_db()
 			hashed_pw, err := shared.Generate_password_hash(r.Form["password"][0])
 			shared.CheckError(err)
 			rv, err := db.Query("insert into user (username, email, pw_hash) values (?, ?, ?)", r.Form["username"], r.Form["email"], hashed_pw)

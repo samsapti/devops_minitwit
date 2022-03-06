@@ -2,10 +2,9 @@ package shared
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"reflect"
-	"strconv"
-	"strings"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
@@ -47,19 +46,9 @@ func Connect_db() *sql.DB {
 	return db
 }
 
-func Query_db(query string, args []interface{}, one bool) []map[string]interface{} {
-	for i := range args {
-		if reflect.TypeOf(args[i]).Kind() == reflect.String {
-			query = strings.Replace(query, "?", "'"+args[i].(string)+"'", 1)
-		} else if reflect.TypeOf(args[i]).Kind() == reflect.Int {
-			query = strings.Replace(query, "?", strconv.Itoa(args[i].(int)), 1)
-		} else {
-			log.Printf("ERROR: unsupported argument type: %A\n", reflect.TypeOf(args[i]))
-		}
-	}
+func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 
-	db := Connect_db()
-	rows, err := db.Query(query)
+	//log.Printf("\n---------\nAttempted query: %s\n---------\n", query)
 
 	if CheckError(err) {
 		return nil
@@ -67,20 +56,18 @@ func Query_db(query string, args []interface{}, one bool) []map[string]interface
 		defer rows.Close()
 	}
 
-	cols, err2 := rows.Columns()
-
-	if CheckError(err2) {
+	cols, err := rows.Columns()
+	if CheckError(err) {
 		return nil
 	}
 
 	values := make([]interface{}, len(cols))
-
 	for i := range cols {
-		values[i] = new(sql.RawBytes)
+		values[i] = new(interface{})
 	}
 
-	var dicts []map[string]interface{}
-	log.Printf("---------\nAttempted query: %s\n---------\n", query)
+	dicts := make([]map[string]interface{}, len(cols))
+	dictIdx := 0
 
 	for rows.Next() {
 		err = rows.Scan(values...)
@@ -88,15 +75,17 @@ func Query_db(query string, args []interface{}, one bool) []map[string]interface
 			continue
 		}
 
-		var m map[string]interface{}
+		m := make(map[string]interface{})
 
-		for i := range values {
-			m[cols[i]] = values[i]
+		for i, v := range values {
+			val := reflect.Indirect(reflect.ValueOf(v)).Interface()
+			m[cols[i]] = val
 		}
 
-		log.Println(m)
+		fmt.Println(m) // Delete this once everything is working properly
 
-		dicts = append(dicts, m)
+		dicts[dictIdx] = m
+		dictIdx++
 	}
 
 	return dicts
@@ -104,6 +93,6 @@ func Query_db(query string, args []interface{}, one bool) []map[string]interface
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/
 func Generate_password_hash(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
 	return string(bytes), err
 }

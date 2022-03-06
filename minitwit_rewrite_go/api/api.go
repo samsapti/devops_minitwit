@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -18,6 +19,7 @@ type Response struct {
 }
 
 var LATEST int = 0
+var db *sql.DB
 
 func main() {
 	r := mux.NewRouter()
@@ -40,6 +42,7 @@ func main() {
 	}
 
 	log.Println("Starting server")
+	db = mt.Connect_db()
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
@@ -63,10 +66,11 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 }
 
 func get_user_id(username string) int {
-	rv := mt.Query_db("SELECT user.user_id FROM user WHERE username = ?", []interface{}{username}, true)
+	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
+	rv := mt.HandleQuery(rows, err)
 
-	if rv != nil {
-		return rv[0]["user_id"].(int)
+	if rv != nil || len(rv) != 0 {
+		return int(rv[0]["user_id"].(int64))
 	}
 
 	return -1
@@ -159,7 +163,8 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	no_msgs := val
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
-		messages := mt.Query_db(query, []interface{}{no_msgs}, true)
+		rows, err := db.Query(query, no_msgs)
+		messages := mt.HandleQuery(rows, err)
 
 		var filtered_msgs []mt.Message
 
@@ -201,7 +206,8 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user  WHERE message.flagged = 0 AND user.user_id = message.author_id AND user.user_id = ? ORDER BY message.pub_date DESC LIMIT ?"
-		messages := mt.Query_db(query, []interface{}{no_msgs}, true)
+		rows, err := db.Query(query, no_msgs)
+		messages := mt.HandleQuery(rows, err)
 
 		var filtered_msgs []mt.Message
 
@@ -235,7 +241,8 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-		_ = mt.Query_db(query, []interface{}{rData.Author_id, rData.Text, rData.Pub_date}, false)
+
+		db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date)
 
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
@@ -279,9 +286,10 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
-		mt.Query_db(query, []interface{}{user_id, follows_user_id}, true)
-		status := 204
-		resp, _ := json.Marshal(Response{Status: status})
+
+		db.Exec(query, user_id, follows_user_id)
+
+		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
 		return
 	} else if req.Unfollow != "" && r.Method == "POST" {
@@ -294,7 +302,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
 
-		mt.Query_db(query, []interface{}{user_id, unfollows_user_id}, true)
+		db.Exec(query, user_id, unfollows_user_id)
 
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
@@ -309,7 +317,10 @@ func follow(w http.ResponseWriter, r *http.Request) {
 			val, _ = strconv.Atoi(vars["no"])
 		}
 		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
-		followers := mt.Query_db(query, []interface{}{user_id, val}, true)
+
+		rows, err := db.Query(query, user_id, val)
+		followers := mt.HandleQuery(rows, err)
+
 		var follower_names []interface{}
 		for f := range followers {
 			follower_names = append(follower_names, f)
