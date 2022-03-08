@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -64,16 +63,6 @@ func main() {
 
 func favicon(w http.ResponseWriter, r *http.Request) {
 
-}
-
-func init_db() {
-	query, err := ioutil.ReadFile("../schema.sql")
-
-	if shared.CheckError(err) {
-		return
-	}
-
-	db.Exec(string(query))
 }
 
 func get_user_id(username string) int {

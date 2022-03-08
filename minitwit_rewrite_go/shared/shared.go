@@ -3,6 +3,7 @@ package shared
 import (
 	"database/sql"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"reflect"
 
@@ -38,6 +39,18 @@ func CheckError(err error) bool {
 	}
 
 	return err != nil
+}
+
+func Init_db() {
+	query, err := ioutil.ReadFile("../../schema.sql")
+
+	if CheckError(err) {
+		return
+	}
+
+	db := Connect_db()
+
+	db.Exec(string(query))
 }
 
 func Connect_db() *sql.DB {
