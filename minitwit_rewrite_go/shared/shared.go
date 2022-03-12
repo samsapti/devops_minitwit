@@ -60,9 +60,6 @@ func Connect_db() *sql.DB {
 }
 
 func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
-
-	//log.Printf("\n---------\nAttempted query: %s\n---------\n", query)
-
 	if CheckError(err) {
 		return nil
 	} else {
@@ -82,7 +79,10 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 	dicts := make([]map[string]interface{}, len(cols))
 	dictIdx := 0
 
+	rowsCount := 0
+
 	for rows.Next() {
+		rowsCount++
 		err = rows.Scan(values...)
 		if CheckError(err) {
 			continue
@@ -95,17 +95,24 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 			m[cols[i]] = val
 		}
 
-		fmt.Println(m) // Delete this once everything is working properly
-
 		dicts[dictIdx] = m
 		dictIdx++
 	}
 
-	return dicts
+	fmt.Printf("Columns %v ", cols)
+	fmt.Println("returned dictionaries:", dicts) // Delete this once everything is working properly
+
+	if rowsCount == 0 {
+		//log.Println("Query returned no results, the database might be empty!")
+		var noData []map[string]interface{}
+		return noData
+	} else {
+		return dicts
+	}
 }
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/
 func Generate_password_hash(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
 }

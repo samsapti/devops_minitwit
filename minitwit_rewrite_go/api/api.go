@@ -22,6 +22,9 @@ var LATEST int = 0
 var db *sql.DB
 
 func main() {
+	// Create the database tables. Reset database if data already exists.
+	mt.Init_db()
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/latest", get_latest)
@@ -100,6 +103,7 @@ func get_latest(w http.ResponseWriter, r *http.Request) {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
+	log.Println("REGISTER:")
 	update_latest(r)
 
 	request_data := json.NewDecoder(r.Body)
@@ -126,10 +130,13 @@ func register(w http.ResponseWriter, r *http.Request) {
 			db := mt.Connect_db()
 			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
+
+			log.Printf("	Inserting user \"%s\" into database\n", r_data.Username)
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
-			rv, err := db.Query(query, r_data.Username, r_data.Email, hashed_pw)
-			mt.CheckError(err)
-			defer rv.Close()
+			res, err := db.Exec(query, r_data.Username, r_data.Email, hashed_pw)
+			affected, err := res.RowsAffected()
+			lastInsert, err := res.LastInsertId()
+			log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
 		}
 	}
 
@@ -187,6 +194,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages_per_user(w http.ResponseWriter, r *http.Request) {
+	log.Println("TWEET:")
 	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
@@ -240,9 +248,13 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 			Pub_date:  int(time.Now().Unix()),
 		}
 
+		log.Printf("	Inserting message \"%s\" into database\n", rData.Text)
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-
-		db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date)
+		res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date)
+		mt.CheckError(err)
+		affected, err := res.RowsAffected()
+		lastInsert, err := res.LastInsertId()
+		log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
 
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
@@ -286,7 +298,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
-
 		db.Exec(query, user_id, follows_user_id)
 
 		resp, _ := json.Marshal(Response{Status: 204})
@@ -301,7 +312,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
-
 		db.Exec(query, user_id, unfollows_user_id)
 
 		resp, _ := json.Marshal(Response{Status: 204})
