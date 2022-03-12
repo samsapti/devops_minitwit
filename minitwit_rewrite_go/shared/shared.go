@@ -10,8 +10,6 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-var DATABASE = "../../tmp/minitwit.db"
-
 type User struct {
 	Id       int    `json:"id"`
 	Username string `json:"username"`
@@ -40,20 +38,24 @@ func CheckError(err error) bool {
 	return err != nil
 }
 
-func Init_db() {
-	query, err := ioutil.ReadFile("../../schema.sql")
+func Init_db(schemaDest, dbDest string) {
+	query, err := ioutil.ReadFile(schemaDest)
 
 	if CheckError(err) {
-		return
+		panic(err)
 	}
 
-	db := Connect_db()
+	db := Connect_db(dbDest)
 
-	db.Exec(string(query))
+	if _, err := db.Exec(string(query)); err != nil {
+		panic(err)
+	}
+	db.Close()
+	log.Println("Initialised database")
 }
 
-func Connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
+func Connect_db(dbDest string) *sql.DB {
+	db, err := sql.Open("sqlite3", dbDest)
 	CheckError(err)
 	return db
 }

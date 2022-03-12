@@ -18,12 +18,13 @@ type Response struct {
 	Status int
 }
 
+var DATABASE = "../../tmp/minitwit.db"
+var INIT_DB_SCHEMA = "../../db_init.sql"
 var LATEST int = 0
 var db *sql.DB
 
 func main() {
-	// Create the database tables. Reset database if data already exists.
-	mt.Init_db()
+	mt.Init_db(INIT_DB_SCHEMA, DATABASE)
 
 	port := 8000
 
@@ -47,7 +48,7 @@ func main() {
 	}
 
 	log.Printf("Starting API on port %d\n", port)
-	db = mt.Connect_db()
+	db = mt.Connect_db(DATABASE)
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
@@ -136,7 +137,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r_data.Username) != -1 {
 			error = "The username is already taken"
 		} else {
-			db := mt.Connect_db()
+			db := mt.Connect_db(DATABASE)
 			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
 
