@@ -126,7 +126,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 	request_data.Decode(&r_data)
 
-	var error string
+	error := ""
 	if r.Method == "POST" {
 		if r_data.Username == "" {
 			error = "You have to enter a username"
@@ -155,6 +155,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		status = 204
 	}
 
+	w.WriteHeader(status)
 	resp, _ := json.Marshal(Response{Status: status})
 	w.Write(resp)
 }
@@ -260,6 +261,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		mt.CheckError(err)
 		logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
 
+		w.WriteHeader(204)
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
 	}
@@ -280,6 +282,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	user_id := get_user_id(username)
 	if user_id == -1 {
 		status = 404
+		w.WriteHeader(404)
 		resp, _ := json.Marshal(Response{Status: status})
 		w.Write(resp)
 		return
@@ -296,6 +299,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		follows_user_id := get_user_id(req.Follow)
 		if follows_user_id == -1 {
 			status := 404
+			w.WriteHeader(404)
 			resp, _ := json.Marshal(Response{Status: status})
 			w.Write(resp)
 			return
@@ -304,6 +308,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
 		db.Exec(query, user_id, follows_user_id)
 
+		w.WriteHeader(204)
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
 		return
@@ -311,6 +316,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		unfollows_username := req.Unfollow
 		unfollows_user_id := get_user_id(unfollows_username)
 		if unfollows_user_id == -1 {
+			w.WriteHeader(404)
 			resp, _ := json.Marshal(Response{Status: 404})
 			w.Write(resp)
 		}
@@ -318,6 +324,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
 		db.Exec(query, user_id, unfollows_user_id)
 
+		w.WriteHeader(204)
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
 
@@ -348,6 +355,5 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		resp, _ := json.Marshal(followers_response)
 		w.Write(resp)
-		return
 	}
 }
