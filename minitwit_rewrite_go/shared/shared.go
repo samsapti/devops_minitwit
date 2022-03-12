@@ -2,7 +2,6 @@ package shared
 
 import (
 	"database/sql"
-	"fmt"
 	"io/ioutil"
 	"log"
 	"reflect"
@@ -99,8 +98,7 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 		dictIdx++
 	}
 
-	fmt.Printf("Columns %v ", cols)
-	fmt.Println("returned dictionaries:", dicts) // Delete this once everything is working properly
+	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
 
 	if rowsCount == 0 {
 		//log.Println("Query returned no results, the database might be empty!")

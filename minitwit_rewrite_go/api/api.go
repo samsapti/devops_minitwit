@@ -25,6 +25,8 @@ func main() {
 	// Create the database tables. Reset database if data already exists.
 	mt.Init_db()
 
+	port := 8000
+
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/latest", get_latest)
@@ -38,18 +40,25 @@ func main() {
 
 	srv := &http.Server{
 		Handler: r,
-		Addr:    "0.0.0.0:8000",
+		Addr:    "0.0.0.0:" + strconv.Itoa(port),
 		// Good practice: enforce timeouts for servers you create!
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
 	}
 
-	log.Println("Starting server")
+	log.Printf("Starting API on port %d\n", port)
 	db = mt.Connect_db()
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
 	}
+}
+
+func logQueryInfo(res sql.Result, query string, queryData string) {
+	log.Printf(query, queryData)
+	affected, _ := res.RowsAffected()
+	lastInsert, _ := res.LastInsertId()
+	log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
 }
 
 func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
@@ -131,12 +140,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
 
-			log.Printf("	Inserting user \"%s\" into database\n", r_data.Username)
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
 			res, err := db.Exec(query, r_data.Username, r_data.Email, hashed_pw)
-			affected, err := res.RowsAffected()
-			lastInsert, err := res.LastInsertId()
-			log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
+			logQueryInfo(res, "	Inserting user \"%s\" into database\n", r_data.Username)
 		}
 	}
 
@@ -248,13 +254,10 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 			Pub_date:  int(time.Now().Unix()),
 		}
 
-		log.Printf("	Inserting message \"%s\" into database\n", rData.Text)
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
 		res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date)
 		mt.CheckError(err)
-		affected, err := res.RowsAffected()
-		lastInsert, err := res.LastInsertId()
-		log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
+		logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
 
 		resp, _ := json.Marshal(Response{Status: 204})
 		w.Write(resp)
