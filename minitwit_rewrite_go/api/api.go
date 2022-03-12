@@ -154,8 +154,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 	} else {
 		status = 204
 	}
-
-	resp, _ := json.Marshal(Response{Status: status})
+	response := Response{Status: status}
+	resp, _ := json.Marshal(response)
+	w.WriteHeader(response.Status)
 	w.Write(resp)
 }
 
@@ -195,7 +196,6 @@ func messages(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp, _ := json.Marshal(filtered_msgs)
-
 		w.Write(resp)
 	}
 }
@@ -207,6 +207,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 	not_from_sim_response := not_req_from_simulator(w, r)
 
 	if not_from_sim_response != nil {
+		w.WriteHeader(403)
 		w.Write(not_from_sim_response)
 	}
 
@@ -239,6 +240,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp, _ := json.Marshal(filtered_msgs)
+		w.WriteHeader(204)
 		w.Write(resp)
 
 	} else if r.Method == "POST" {
