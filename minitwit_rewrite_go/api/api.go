@@ -263,6 +263,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
 
 		resp, _ := json.Marshal(Response{Status: 204})
+		w.WriteHeader(204)
 		w.Write(resp)
 	}
 }
@@ -283,6 +284,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	if user_id == -1 {
 		status = 404
 		resp, _ := json.Marshal(Response{Status: status})
+		w.WriteHeader(status)
 		w.Write(resp)
 		return
 	}
@@ -299,6 +301,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		if follows_user_id == -1 {
 			status := 404
 			resp, _ := json.Marshal(Response{Status: status})
+			w.WriteHeader(status)
 			w.Write(resp)
 			return
 		}
@@ -307,6 +310,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		db.Exec(query, user_id, follows_user_id)
 
 		resp, _ := json.Marshal(Response{Status: 204})
+		w.WriteHeader(204)
 		w.Write(resp)
 		return
 	} else if req.Unfollow != "" && r.Method == "POST" {
@@ -314,6 +318,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		unfollows_user_id := get_user_id(unfollows_username)
 		if unfollows_user_id == -1 {
 			resp, _ := json.Marshal(Response{Status: 404})
+			w.WriteHeader(404)
 			w.Write(resp)
 		}
 
@@ -321,6 +326,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		db.Exec(query, user_id, unfollows_user_id)
 
 		resp, _ := json.Marshal(Response{Status: 204})
+		w.WriteHeader(204)
 		w.Write(resp)
 
 		return
@@ -349,6 +355,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp, _ := json.Marshal(followers_response)
+		w.WriteHeader(204)
 		w.Write(resp)
 		return
 	}
