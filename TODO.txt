@@ -1,0 +1,5 @@
+TODO tuesday 15-03-22
+1. CI
+2. Database abstraction layer
+3. Monitoring
+4. UI
