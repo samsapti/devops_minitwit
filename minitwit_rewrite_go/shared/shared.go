@@ -2,15 +2,13 @@ package shared
 
 import (
 	"database/sql"
-	"fmt"
+	"io/ioutil"
 	"log"
 	"reflect"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 )
-
-var DATABASE = "../../tmp/minitwit.db"
 
 type User struct {
 	Id       int    `json:"id"`
@@ -40,16 +38,29 @@ func CheckError(err error) bool {
 	return err != nil
 }
 
-func Connect_db() *sql.DB {
-	db, err := sql.Open("sqlite3", DATABASE)
+func Init_db(schemaDest, dbDest string) {
+	query, err := ioutil.ReadFile(schemaDest)
+
+	if CheckError(err) {
+		panic(err)
+	}
+
+	db := Connect_db(dbDest)
+
+	if _, err := db.Exec(string(query)); err != nil {
+		panic(err)
+	}
+	db.Close()
+	log.Println("Initialised database")
+}
+
+func Connect_db(dbDest string) *sql.DB {
+	db, err := sql.Open("sqlite3", dbDest)
 	CheckError(err)
 	return db
 }
 
 func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
-
-	//log.Printf("\n---------\nAttempted query: %s\n---------\n", query)
-
 	if CheckError(err) {
 		return nil
 	} else {
@@ -69,7 +80,10 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 	dicts := make([]map[string]interface{}, len(cols))
 	dictIdx := 0
 
+	rowsCount := 0
+
 	for rows.Next() {
+		rowsCount++
 		err = rows.Scan(values...)
 		if CheckError(err) {
 			continue
@@ -82,17 +96,23 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 			m[cols[i]] = val
 		}
 
-		fmt.Println(m) // Delete this once everything is working properly
-
 		dicts[dictIdx] = m
 		dictIdx++
 	}
 
-	return dicts
+	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
+
+	if rowsCount == 0 {
+		//log.Println("Query returned no results, the database might be empty!")
+		var noData []map[string]interface{}
+		return noData
+	} else {
+		return dicts
+	}
 }
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/
 func Generate_password_hash(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
 }

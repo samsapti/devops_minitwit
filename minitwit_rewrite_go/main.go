@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"html/template"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -23,6 +22,8 @@ import (
 	"minitwit_rewrite/shared"
 )
 
+var DATABASE = "../tmp/minitwit.db"
+var INIT_DB_SCHEMA = "../db_init.sql"
 var PER_PAGE = 30
 var DEBUG = true
 var SECRET_KEY = "development key"
@@ -33,6 +34,8 @@ var db *sql.DB
 var sq = sqlite3.ErrAbort
 
 func main() {
+	shared.Init_db(INIT_DB_SCHEMA, DATABASE)
+
 	r := mux.NewRouter()
 	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
 
@@ -48,7 +51,7 @@ func main() {
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
 	http.Handle("/", r)
 
-	db = shared.Connect_db()
+	db = shared.Connect_db(DATABASE)
 
 	srv := &http.Server{
 		Handler: r,
@@ -64,16 +67,6 @@ func main() {
 
 func favicon(w http.ResponseWriter, r *http.Request) {
 
-}
-
-func init_db() {
-	query, err := ioutil.ReadFile("../schema.sql")
-
-	if shared.CheckError(err) {
-		return
-	}
-
-	db.Exec(string(query))
 }
 
 func get_user_id(username string) int {
