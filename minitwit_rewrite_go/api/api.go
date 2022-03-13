@@ -143,6 +143,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
 			res, err := db.Exec(query, r_data.Username, r_data.Email, hashed_pw)
+			mt.CheckError(err)
 			logQueryInfo(res, "	Inserting user \"%s\" into database\n", r_data.Username)
 		}
 	}
@@ -165,6 +166,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 	if not_from_sim_response != nil {
+		w.WriteHeader(403)
 		w.Write(not_from_sim_response)
 	}
 
@@ -242,6 +244,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(filtered_msgs)
 		w.WriteHeader(204)
 		w.Write(resp)
+		return
 
 	} else if r.Method == "POST" {
 		r_data := struct {
@@ -258,17 +261,20 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-		res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date)
-		mt.CheckError(err)
-		logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
-
-		resp, _ := json.Marshal(Response{Status: 204})
-		w.WriteHeader(204)
-		w.Write(resp)
+		if res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date); err != nil {
+			w.WriteHeader(403)
+			return
+		} else {
+			logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
+			resp, _ := json.Marshal(Response{Status: 204})
+			w.WriteHeader(204)
+			w.Write(resp)
+		}
 	}
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
+	log.Println("FOLLOW/UNFOLLOW:")
 	username := mux.Vars(r)["username"]
 	update_latest(r)
 	var status = 0
@@ -276,6 +282,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 	not_from_sim_response := not_req_from_simulator(w, r)
 	if not_from_sim_response != nil {
+		w.WriteHeader(403)
 		w.Write(not_from_sim_response)
 		return
 	}
@@ -307,30 +314,40 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
-		db.Exec(query, user_id, follows_user_id)
+		if res, err := db.Exec(query, user_id, follows_user_id); err != nil {
+			w.WriteHeader(403)
+			return
+		} else {
+			logQueryInfo(res, "	Inserting follower \"%s\" into database\n", req.Follow)
+			resp, _ := json.Marshal(Response{Status: 204})
+			w.WriteHeader(204)
+			w.Write(resp)
+		}
 
-		resp, _ := json.Marshal(Response{Status: 204})
-		w.WriteHeader(204)
-		w.Write(resp)
 		return
 	} else if req.Unfollow != "" && r.Method == "POST" {
 		unfollows_username := req.Unfollow
 		unfollows_user_id := get_user_id(unfollows_username)
+
 		if unfollows_user_id == -1 {
 			resp, _ := json.Marshal(Response{Status: 404})
 			w.WriteHeader(404)
 			w.Write(resp)
+			return
 		}
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
-		db.Exec(query, user_id, unfollows_user_id)
-
-		resp, _ := json.Marshal(Response{Status: 204})
-		w.WriteHeader(204)
-		w.Write(resp)
+		if res, err := db.Exec(query, user_id, unfollows_user_id); err != nil {
+			w.WriteHeader(403)
+			return
+		} else {
+			logQueryInfo(res, "	Deleting follower \"%s\" from database\n", unfollows_username)
+			resp, _ := json.Marshal(Response{Status: 204})
+			w.WriteHeader(204)
+			w.Write(resp)
+		}
 
 		return
-
 	} else if r.Method == "GET" {
 		def := 100
 		vars := mux.Vars(r)
@@ -338,10 +355,15 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		if len(vars) != 0 {
 			val, _ = strconv.Atoi(vars["no"])
 		}
-		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
 
-		rows, err := db.Query(query, user_id, val)
-		followers := mt.HandleQuery(rows, err)
+		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
+		var followers []map[string]interface{}
+		if rows, err := db.Query(query, user_id, val); err != nil {
+			w.WriteHeader(403)
+			return
+		} else {
+			followers = mt.HandleQuery(rows, err)
+		}
 
 		var follower_names []interface{}
 		for f := range followers {
@@ -357,6 +379,5 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(followers_response)
 		w.WriteHeader(204)
 		w.Write(resp)
-		return
 	}
 }
