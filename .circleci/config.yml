@@ -6,7 +6,6 @@ version: 2.1
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
   build:
-    name: "build docker images"
     docker:
       - image: buildpack-deps:trusty
         auth:
@@ -20,7 +19,6 @@ jobs:
       - run: docker push $DOCKER_USERNAME/minitwitimage:latest
 
   deploy:
-    name: "deploy new version"
     docker:
       - image: buildpack-deps:trusty
         auth:
