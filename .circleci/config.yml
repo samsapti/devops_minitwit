@@ -5,22 +5,36 @@ version: 2.1
 # Define a job to be invoked later in a workflow.
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
-  say-hello:
-    # Specify the execution environment. You can specify an image from Dockerhub or use one of our Convenience Images from CircleCI's Developer Hub.
-    # See: https://circleci.com/docs/2.0/configuration-reference/#docker-machine-macos-windows-executor
+  build:
+    name: "build docker images"
     docker:
-      - image: cimg/base:stable
-    # Add steps to the job
-    # See: https://circleci.com/docs/2.0/configuration-reference/#steps
+      - image: buildpack-deps:trusty
+        auth:
+          username: $DOCKER_USERNAME
+          password: $DOCKER_PASSWORD
     steps:
-      - checkout
-      - run:
-          name: "Say hello"
-          command: "echo Hello, World!"
+      - run: echo "BUILD"
+      - run: cd minitwit_rewrite_go/api
+      - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
+      - run: echo "PUSH"
+      - run: docker push $DOCKER_USERNAME/minitwitimage:latest
 
-# Invoke jobs via workflows
-# See: https://circleci.com/docs/2.0/configuration-reference/#workflows
+  deploy:
+    name: "deploy new version"
+    docker:
+      - image: buildpack-deps:trusty
+        auth:
+          username: $DOCKER_USERNAME
+          password: $DOCKER_PASSWORD
+    steps:
+      - run: |
+          ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
+          "cd ~/docker_minitwit && \
+          docker-compose pull && \
+          docker-compose up -d"
+
 workflows:
-  say-hello-workflow:
+  deploy-workflow:
     jobs:
-      - say-hello
+      - build
+      - deploy
