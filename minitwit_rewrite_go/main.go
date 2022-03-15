@@ -225,7 +225,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 	var error string
 	if r.Method == "POST" {
-		rows, err := db.Query("select * from user where username = ?", "") //r.Form["username"]
+		rows, err := db.Query("select * from user where username = ?", r.Form["username"])
 		user := shared.HandleQuery(rows, err)
 
 		if user[0] == nil {

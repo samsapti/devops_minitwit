@@ -1,33 +1,37 @@
-{{define "layout"}}
-<!doctype html>
-<title>{{block "title" .}}Welcome{{end}} | MiniTwit</title>
-<link type=text/css href="/static/css/style.css">
-<div class=page>
-  <h1>MiniTwit</h1>
-  <div class=navigation>
-  {{ if .User }}
-    <a href="{{/timeline}}">my timeline</a> |
-    <a href="{{/public}}">public timeline</a> |
-    <a href="{{/logout}}">sign out [{{ User.username }}]</a>
-  {{else}}
-    <a href="{{/public}}">public timeline</a> |
-    <a href="{{/register}}">sign up</a> |
-    <a href="{{/login}">sign in</a>
-  {{end}}
-  </div>
-  {% with flashes = get_flashed_messages() %} <!-- I have no clue about what to do with this one-->
-    {% if flashes %}
-      <ul class=flashes>
-      {% for message in flashes %}
-        <li>{{ message }}
-      {% endfor %}
-      </ul>
-    {% endif %}
-  {% endwith %}
-  <div class=body>
-  {{block "body" .}}{{end}}
-  </div>
-  <div class=footer>
-    MiniTwit &mdash; A Flask Application
-  </div>
-</div>
+{{ define "base" }}
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>{{block "title" .}}Welcome {{end}} | MiniTwit</title>
+    <link type=text/css href="/static/css/style.css"/>
+  </head>
+	<body>
+    <div class="page">
+      <h1>MiniTwit</h1>
+      <div class="navigation">
+        {{ if .loggedIn }}
+          <a href="/static/timeline.html">My timeline</a>
+          <a href="/static/timeline.html">public timeline</a> <!--Remove "{username}" when testing, there for reference-->
+          <a href="/static/login.html">login</a>
+        {{ else }}
+          <a href="/static/timeline.html">public timeline</a><!--the linking between pages are expected to fail at the moment. might need a function in the main.go to handle redirects? and call it with different "endpoints" as strings.-->
+          <a href="/static/register.html">sign up</a>
+          <a href="/static/login.html">sign in</a>
+        {{ end }}
+      </div>
+      {{ range .Flashes }}
+        <ul class=flashes>
+          <li>{{ "test" }}</li>
+        </ul>
+      {{end}}
+      <div class="body">
+        {{block "body" .}} {{end}}
+      </div>
+      <div class=footer>
+        MiniTwit &mdash; A Go Application
+      </div>
+    </div>
+	</body>
+</html>
+{{ end }}

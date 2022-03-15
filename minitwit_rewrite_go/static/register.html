@@ -1,6 +1,6 @@
-{{ template "layout.html" }}
-{{ define "title" }}Sign Up{{end}}
-{{ define "body" }}
+{{ template "base" .}}
+{{define "title"}}Sign Up{{end}}
+{{define "body"}}
   <h2>Sign Up</h2>
   {{if error }}<div class=error><strong>Error:</strong> {{ error }}</div>{{end}}
   <form action="" method=post>
