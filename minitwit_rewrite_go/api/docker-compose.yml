@@ -7,3 +7,5 @@ services:
     restart: unless-stopped
     ports:
       - 8000:8000
+    volumes:
+      - $HOME/db:/builder/minitwit_thesvindler/tmp
