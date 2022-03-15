@@ -6,12 +6,15 @@ version: 2.1
 # See: https://circleci.com/docs/2.0/configuration-reference/#jobs
 jobs:
   build:
+    working_directory: /app
     docker:
-      - image: buildpack-deps:trusty
+      - image: docker:17.05.0-ce-git
         auth:
           username: $DOCKER_USERNAME
           password: $DOCKER_PASSWORD
     steps:
+      - checkout
+      - setup_remote_docker
       - run: echo "BUILD"
       - run: cd minitwit_rewrite_go/api
       - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
@@ -34,5 +37,13 @@ jobs:
 workflows:
   deploy-workflow:
     jobs:
-      - build
-      - deploy
+      - build:
+          filters:
+            branches:
+              only:
+                - main
+      - deploy:
+          filters:
+            branches:
+              only:
+                - main
