@@ -15,7 +15,7 @@ jobs:
       - run: echo "BUILD"
       - run: cd minitwit_rewrite_go/api
       - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
-      - run: echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
+      - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: echo "PUSH"
       - run: docker push $DOCKER_USERNAME/minitwitimage:latest
 
