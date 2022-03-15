@@ -9,24 +9,19 @@ jobs:
     working_directory: /app
     docker:
       - image: docker:17.05.0-ce-git
-        auth:
-          username: $DOCKER_USERNAME
-          password: $DOCKER_PASSWORD
     steps:
       - checkout
       - setup_remote_docker
       - run: echo "BUILD"
       - run: cd minitwit_rewrite_go/api
       - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
+      - run: echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
       - run: echo "PUSH"
       - run: docker push $DOCKER_USERNAME/minitwitimage:latest
 
   deploy:
     docker:
       - image: buildpack-deps:trusty
-        auth:
-          username: $DOCKER_USERNAME
-          password: $DOCKER_PASSWORD
     steps:
       - run: |
           ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
