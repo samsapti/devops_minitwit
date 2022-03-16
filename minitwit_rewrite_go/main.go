@@ -42,7 +42,9 @@ func main() {
 	shared.Init_db(INIT_DB_SCHEMA, DATABASE)
 
 	r := mux.NewRouter()
-	r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static/"))))
+
+	// Load CSS
+	r.PathPrefix("/static/css/").Handler(http.StripPrefix("/static/css/", http.FileServer(http.Dir("./static/css/"))))
 
 	r.HandleFunc("/", timeline)
 	r.HandleFunc("/public", public_timeline)
