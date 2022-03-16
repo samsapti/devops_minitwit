@@ -103,7 +103,6 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
 
 	if rowsCount == 0 {
-		//log.Println("Query returned no results, the database might be empty!")
 		var noData []map[string]interface{}
 		return noData
 	} else {
