@@ -13,8 +13,8 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: echo "BUILD"
-      - run: cd minitwit_rewrite_go/api
       - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
+      - run: echo "LOGIN"
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: echo "PUSH"
       - run: docker push $DOCKER_USERNAME/minitwitimage:latest
@@ -26,6 +26,7 @@ jobs:
       - run: |
           ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
           "cd ~/docker_minitwit && \
+          docker-compose down && \
           docker-compose pull && \
           docker-compose up -d"
 
