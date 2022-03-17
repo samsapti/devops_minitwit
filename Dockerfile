@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.18 AS builder
+FROM docker.io/library/golang:1.18
 
 WORKDIR /app
 RUN git clone "https://github.com/salsitu/minitwit_thesvindler.git"
