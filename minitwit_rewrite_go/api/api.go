@@ -125,18 +125,23 @@ func register(w http.ResponseWriter, r *http.Request) {
 	}{}
 
 	request_data.Decode(&r_data)
-
-	var error string
+	var status int
+	var errorMsg string
 	if r.Method == "POST" {
 		if r_data.Username == "" {
-			error = "You have to enter a username"
+			errorMsg = "You have to enter a username"
+			status = 400
 		} else if r_data.Email == "" || !strings.Contains(r_data.Email, "@") {
-			error = "You have to enter a valid email address"
+			errorMsg = "You have to enter a valid email address"
+			status = 400
 		} else if r_data.Pwd == "" {
-			error = "You have to enter a password"
+			errorMsg = "You have to enter a password"
+			status = 400
 		} else if get_user_id(r_data.Username) != -1 {
-			error = "The username is already taken"
+			errorMsg = "The username is already taken"
+			status = 400
 		} else {
+			status = 204
 			db := mt.Connect_db(DATABASE)
 			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
 			mt.CheckError(err)
@@ -148,16 +153,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var status int
-
-	if error != "" {
-		status = 400
-	} else {
-		status = 204
-	}
-	response := Response{Status: status}
-	resp, _ := json.Marshal(response)
-	w.WriteHeader(response.Status)
+	resp, _ := json.Marshal("204 " + errorMsg)
+	w.WriteHeader(status)
 	w.Write(resp)
 }
 
@@ -198,6 +195,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 		}
 
 		resp, _ := json.Marshal(filtered_msgs)
+		w.WriteHeader(200)
 		w.Write(resp)
 	}
 }
@@ -262,7 +260,9 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
 		if res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date); err != nil {
+			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
+			w.Write(resp)
 			return
 		} else {
 			logQueryInfo(res, "	Inserting message \"%s\" into database\n", rData.Text)
@@ -277,7 +277,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	log.Println("FOLLOW/UNFOLLOW:")
 	username := mux.Vars(r)["username"]
 	update_latest(r)
-	var status = 0
 	decoder := json.NewDecoder(r.Body)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
@@ -289,7 +288,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 	user_id := get_user_id(username)
 	if user_id == -1 {
-		status = 404
+		status := 404
 		resp, _ := json.Marshal(Response{Status: status})
 		w.WriteHeader(status)
 		w.Write(resp)
@@ -315,7 +314,9 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
 		if res, err := db.Exec(query, user_id, follows_user_id); err != nil {
+			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
+			w.Write(resp)
 			return
 		} else {
 			logQueryInfo(res, "	Inserting follower \"%s\" into database\n", req.Follow)
@@ -338,7 +339,9 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
 		if res, err := db.Exec(query, user_id, unfollows_user_id); err != nil {
+			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
+			w.Write(resp)
 			return
 		} else {
 			logQueryInfo(res, "	Deleting follower \"%s\" from database\n", unfollows_username)
@@ -359,7 +362,9 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
 		var followers []map[string]interface{}
 		if rows, err := db.Query(query, user_id, val); err != nil {
+			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
+			w.Write(resp)
 			return
 		} else {
 			followers = mt.HandleQuery(rows, err)
