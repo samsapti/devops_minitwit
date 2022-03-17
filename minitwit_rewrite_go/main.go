@@ -33,6 +33,11 @@ var db *sql.DB
 
 var sq = sqlite3.ErrAbort
 
+type SessionData struct {
+	Flashes  []interface{}
+	Username string
+}
+
 func main() {
 	shared.Init_db(INIT_DB_SCHEMA, DATABASE)
 
@@ -70,15 +75,14 @@ func favicon(w http.ResponseWriter, r *http.Request) {
 }
 
 func get_user_id(username string) int {
-	rv, err := db.Query("select user_id from user where username = ?", username)
-	shared.CheckError(err)
-	defer rv.Close()
-	var userid int
-	for rv.Next() {
-		err := rv.Scan(&userid)
-		shared.CheckError(err)
+	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
+	rv := shared.HandleQuery(rows, err)
+
+	if rv != nil || len(rv) != 0 {
+		return int(rv[0]["user_id"].(int64))
 	}
-	return userid
+
+	return -1
 }
 
 func format_datetime(time time.Time) string {
@@ -223,14 +227,18 @@ func login(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+
 	var error string
 	if r.Method == "POST" {
-		rows, err := db.Query("select * from user where username = ?", "") //r.Form["username"]
+		inputUsername := r.FormValue("username")
+		inputPassword := r.FormValue("password")
+
+		rows, err := db.Query("select * from user where username = ?", inputUsername)
 		user := shared.HandleQuery(rows, err)
 
-		if user[0] == nil {
+		if user == nil {
 			error = "Invalid username"
-		} else if check_password_hash(r.Form["password"][0], user[0]["pw_hash"].(string)) {
+		} else if !check_password_hash(inputPassword, user[0]["pw_hash"].(string)) {
 			error = "Invalid password"
 		} else {
 			session.AddFlash("You were logged in")
@@ -240,12 +248,20 @@ func login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	template, err := template.ParseFiles("static/login.html")
+
+	tmpl, err := template.ParseFiles("static/login.html", "static/layout.html")
 	shared.CheckError(err)
-	m := map[string]interface{}{
-		"error": error,
+	data := struct {
+		Error       string
+		SessionData SessionData
+	}{
+		Error: error,
+		SessionData: SessionData{
+			Flashes:  session.Flashes(),
+			Username: "",
+		},
 	}
-	template.Execute(w, m)
+	tmpl.Execute(w, data)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -255,40 +271,49 @@ func register(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
+
 	var error string
 	if r.Method == "POST" {
-		if r.Form["username"] == nil {
+		if r.FormValue("username") == "" {
 			error = "You have to enter a username"
-		} else if r.Form["email"] == nil /*|| !r.Form["email"].contains("@")*/ {
+		} else if r.FormValue("email") == "" || !strings.Contains(r.FormValue("email"), "@") {
 			error = "You have to enter a valid email address"
-		} else if r.Form["password"] == nil {
+		} else if r.FormValue("password") == "" {
 			error = "You have to enter a password"
-		} else if r.Form["password"] != nil /*r.Form["password2"] */ {
+		} else if r.FormValue("password") != r.FormValue("password2") {
 			error = "The two passwords do not match"
-		} else if get_user_id(r.Form["username"][0]) != 0 {
+		} else if get_user_id(r.FormValue("username")) != -1 {
 			error = "The username is already taken"
 		} else {
-			hashed_pw, err := shared.Generate_password_hash(r.Form["password"][0])
+			hashed_pw, err := shared.Generate_password_hash(r.FormValue("password"))
 			shared.CheckError(err)
-			rv, err := db.Query("insert into user (username, email, pw_hash) values (?, ?, ?)", r.Form["username"], r.Form["email"], hashed_pw)
+			_, err = db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
 			shared.CheckError(err)
-			defer rv.Close()
 			session.AddFlash("You were successfully registered and can login now")
+			session.Save(r, w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
 			return
 		}
 	}
-	template, err := template.ParseFiles("static/register.html")
+	tmpl, err := template.ParseFiles("static/register.html", "static/layout.html")
 	shared.CheckError(err)
-	m := map[string]interface{}{
-		"error": error,
+	data := struct {
+		Error       string
+		SessionData SessionData
+	}{
+		Error: error,
+		SessionData: SessionData{
+			Flashes:  session.Flashes(),
+			Username: "",
+		},
 	}
-	template.Execute(w, m)
+	tmpl.Execute(w, data)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
-	session.AddFlash("You were logged in")
+	session.AddFlash("You were logged out")
+	session.Save(r, w)
 	session.Values["user_id"] = nil
 	http.Redirect(w, r, "/public", http.StatusSeeOther)
 }
