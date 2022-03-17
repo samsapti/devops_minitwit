@@ -11,9 +11,9 @@
       <h1>MiniTwit</h1>
       <div class="navigation">
         {{ if (ne .SessionData.Username "") }}
-          <a href="timeline.html">My timeline</a>
+          <a href="timeline.html">my timeline</a>
           <a href="timeline.html">public timeline</a> <!--Remove "{username}" when testing, there for reference-->
-          <a href="login.html">login</a>
+          <a href="login.html">log out</a>
         {{ else }}
           <a href="timeline.html">public timeline</a><!--the linking between pages are expected to fail at the moment. might need a function in the main.go to handle redirects? and call it with different "endpoints" as strings.-->
           <a href="/register">sign up</a>

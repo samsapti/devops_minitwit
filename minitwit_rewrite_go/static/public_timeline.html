@@ -1,0 +1,14 @@
+{{ template "base" .}}
+{{ define "title" }} Public timeline {{ end }}
+{{ define "body" }}
+    <h2>Timeline</h2>
+    {{ if (ne .SessionData.Username "") }}
+        <div class=twitbox>
+        <h3>What's on your mind {{ g.user.username }}?</h3>
+        <form action="{{ url_for('add_message') }}" method=post>
+          <p><input type=text name=text size=60><!--
+          --><input type=submit value="Share">
+        </form>
+      </div>
+    {{ end }}
+{{ end }}
