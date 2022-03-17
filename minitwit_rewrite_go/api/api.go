@@ -152,8 +152,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 			logQueryInfo(res, "	Inserting user \"%s\" into database\n", r_data.Username)
 		}
 	}
-
-	resp, _ := json.Marshal("204 " + errorMsg)
+	log.Println(errorMsg)
+	resp, _ := json.Marshal(204)
 	w.WriteHeader(status)
 	w.Write(resp)
 }
