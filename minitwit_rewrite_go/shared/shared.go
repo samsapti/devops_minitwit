@@ -11,7 +11,7 @@ import (
 )
 
 type User struct {
-	Id       int    `json:"id"`
+	Id       int64  `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Pw_hash  string `json:"pw_hash"`
@@ -104,6 +104,7 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 
 	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
 
+	log.Printf("Length of dicts: %d", len(dicts))
 	return dicts
 	/* if rowsCount == 0 {
 		var noData []map[string]interface{}

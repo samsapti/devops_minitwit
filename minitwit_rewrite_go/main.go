@@ -32,8 +32,16 @@ var db *sql.DB
 var sq = sqlite3.ErrAbort
 
 type SessionData struct {
-	Flashes  []interface{}
-	Username string
+	Flashes []interface{}
+	User    shared.User
+}
+
+type TimelineData struct {
+	RequestUrl   string
+	Followed     bool
+	Profile_User shared.User
+	Messages     []map[string]interface{}
+	SessionData  SessionData
 }
 
 func main() {
@@ -74,12 +82,12 @@ func favicon(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func get_user_id(username string) int {
+func get_user_id(username string) int64 {
 	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
 	rv := shared.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
-		return int(rv[0]["user_id"].(int64))
+		return rv[0]["user_id"].(int64)
 	}
 
 	return -1
@@ -109,63 +117,112 @@ func after_request() {
 
 }
 
-func getCurrentUser(r *http.Request) (*sessions.Session, string) {
+func getUserSession(r *http.Request) (*sessions.Session, shared.User) {
 	session, _ := store.Get(r, "user-session")
-	if session.Values["username"] == nil {
-		return session, ""
+
+	user := shared.User{}
+
+	if user_id := session.Values["user_id"]; user_id == nil {
+		user.Id = -1
+		user.Username = ""
+	} else {
+		user.Id = user_id.(int64)
+		user.Username = session.Values["username"].(string)
 	}
-	return session, session.Values["username"].(string)
+
+	log.Println("getUserSession, User.Id is", user.Id)
+	return session, user
 }
 
-func getMessages(r *http.Request) []map[string]interface{} {
-	session, username := getCurrentUser(r)
+func getMessages(r *http.Request, public bool) []map[string]interface{} {
+	_, user := getUserSession(r)
 
-	if username == "" {
+	if public {
 		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", PER_PAGE)
 		res := shared.HandleQuery(rows, err)
-		log.Printf("len(res): %d", len(res))
+		log.Printf("Showing %d results", len(res))
 		return res
 	} else {
-		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", session.Values["user_id"].(int64), session.Values["user_id"].(int64), PER_PAGE)
+		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.Id, user.Id, PER_PAGE)
 		res := shared.HandleQuery(rows, err)
-		log.Printf("len(res): %d", len(res))
+		log.Printf("Showing %d results", len(res))
 		return res
 	}
+}
+
+func setupTimelineTemplates(data TimelineData) *template.Template {
+	tmpl, err := template.New("timeline.html").Funcs(template.FuncMap{
+		"gravatar_url": func(email string, size int) string {
+			return gravatar_url(email, size)
+		},
+		"format_datetime": func(time int64) string {
+			return format_datetime2(time)
+		},
+		"timeline_title": func() string {
+			if data.RequestUrl == "/public" {
+				return "Public Timeline"
+			} else if data.RequestUrl[0] == '/' && len(data.RequestUrl) > 1 {
+				return data.Profile_User.Username + "'s Timeline"
+			} else {
+				return "My Timeline"
+			}
+		},
+		"requestUserTimeline": func() bool {
+			if data.RequestUrl[0] == '/' && len(data.RequestUrl) > 1 && data.RequestUrl != "/public" {
+				return true
+			}
+			return false
+		},
+	}).ParseFiles("static/timeline.html", "static/layout.html")
+
+	shared.CheckError(err)
+
+	return tmpl
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.Path)
 	fmt.Println("We got a visitor from: " + r.RemoteAddr)
-	session, _ := store.Get(r, "user-session")
-	if session.Values["user_id"] == nil {
-		http.Redirect(w, r, "/public", http.StatusOK)
+
+	_, user := getUserSession(r)
+
+	if user.Username == "" {
+		http.Redirect(w, r, "/public", http.StatusSeeOther)
 		return
 	}
 	// offset?
-	template, err := template.ParseFiles("static/timeline.html")
-	shared.CheckError(err)
 
-	messages := getMessages(r)
+	messages := getMessages(r, false)
 
-	m := map[string]interface{}{
-		"messages": messages,
+	data := TimelineData{
+		RequestUrl:  r.URL.Path,
+		Messages:    messages,
+		SessionData: SessionData{User: shared.User{Username: user.Username}},
 	}
-	template.Execute(w, m)
+
+	tmpl := setupTimelineTemplates(data)
+	tmpl.Execute(w, data)
 }
 
 func public_timeline(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.Path)
 	fmt.Println("public timeline!")
-	template, err := template.ParseFiles("static/timeline.html")
-	shared.CheckError(err)
 
-	messages := getMessages(r)
+	messages := getMessages(r, true)
+	_, user := getUserSession(r)
 
-	m := map[string]interface{}{
-		"messages": messages,
+	data := TimelineData{
+		RequestUrl:  r.URL.Path,
+		Messages:    messages,
+		SessionData: SessionData{User: shared.User{Username: user.Username}},
 	}
-	template.Execute(w, m)
+
+	tmpl := setupTimelineTemplates(data)
+	tmpl.Execute(w, data)
 }
 
 func user_timeline(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.Path)
 	vars := mux.Vars(r)
 
 	rows, err := db.Query("select * from user where username = ?", vars["username"])
@@ -176,46 +233,32 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	session, username := getCurrentUser(r)
+	_, user := getUserSession(r)
 	followed := false
 
-	if session.Values["user_id"] != nil {
-		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", session.Values["user_id"].(int64), profile_user[0]["user_id"].(string))
-		followed = shared.HandleQuery(rows, err) != nil
+	if user.Id != -1 {
+		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.Id, profile_user[0]["user_id"].(int64))
+		res := shared.HandleQuery(rows, err)
+		followed = res != nil || len(res) != 0
 	}
 
-	tmpl, err := template.New("user_timeline.html").Funcs(template.FuncMap{
-		"gravatar_url": func(email string, size int) string {
-			return gravatar_url(email, size)
-		},
-		"format_datetime": func(time int64) string {
-			return format_datetime2(time)
-		},
-	}).ParseFiles("static/user_timeline.html", "static/layout.html")
-
-	shared.CheckError(err)
-
-	data := struct {
-		Followed     bool
-		Profile_User string
-		Messages     []map[string]interface{}
-		SessionData  SessionData
-	}{
+	data := TimelineData{
+		RequestUrl:   r.URL.Path,
 		Followed:     followed,
-		Profile_User: profile_user[0]["username"].(string),
-		Messages:     getMessages(r),
-		SessionData: SessionData{
-			Flashes:  session.Flashes(),
-			Username: username,
-		},
+		Messages:     getMessages(r, true),
+		Profile_User: shared.User{Username: profile_user[0]["username"].(string)},
+		SessionData:  SessionData{User: shared.User{Username: user.Username}},
 	}
 
+	tmpl := setupTimelineTemplates(data)
 	tmpl.Execute(w, data)
 }
 
 func follow_user(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "user-session")
-	if session.Values["user_id"] == nil {
+	fmt.Println(r.URL.Path)
+
+	session, user := getUserSession(r)
+	if user.Username == "" {
 		w.WriteHeader(401)
 		return
 	}
@@ -225,7 +268,7 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Query("insert into follower (who_id, whom_id) values (?, ?)", session.Values["user_id"].(int64), whom_id)
+	_, err := db.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.Id, whom_id)
 	shared.CheckError(err)
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
@@ -233,18 +276,20 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 }
 
 func unfollow_user(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "user-session")
-	if session.Values["user_id"] == nil {
+	fmt.Println(r.URL.Path)
+
+	session, user := getUserSession(r)
+	if user.Username == "" {
 		w.WriteHeader(401)
 		return
 	}
 	vars := mux.Vars(r)
 	whom_id := get_user_id(vars["username"])
-	if whom_id == 0 {
+	if whom_id == -1 {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Query("delete from follower where who_id=? and whom_id=?", session.Values["user_id"].(int64), whom_id)
+	_, err := db.Exec("delete from follower where who_id=? and whom_id=?", user.Id, whom_id)
 	shared.CheckError(err)
 	session.AddFlash("You are no longer following %s", vars["username"])
 	session.Save(r, w)
@@ -253,13 +298,15 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 }
 
 func add_message(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "user-session")
-	if session.Values["user_id"] == nil {
+	fmt.Println(r.URL.Path)
+	session, user := getUserSession(r)
+
+	if user.Id == -1 {
 		w.WriteHeader(401)
 		return
 	}
-	if r.Form["text"] != nil {
-		_, err := db.Query("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", session.Values["user_id"].(int64), r.FormValue("text"), int(time.Now().Unix()))
+	if r.FormValue("text") != "" {
+		_, err := db.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.Id, r.FormValue("text"), int(time.Now().Unix()))
 		shared.CheckError(err)
 		session.AddFlash("Your message was recorded")
 		session.Save(r, w)
@@ -268,10 +315,12 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	session, _ := store.Get(r, "user-session")
-	user_id := session.Values["user_id"]
-	username := session.Values["username"]
-	if user_id != nil {
+	fmt.Println(r.URL.Path)
+
+	session, user := getUserSession(r)
+	user_id := user.Id
+	username := user.Username
+	if user_id != -1 {
 		fmt.Println("user_id is", user_id)   // delete later
 		fmt.Println("username is", username) // delete later
 		http.Redirect(w, r, "/", http.StatusSeeOther)
@@ -306,16 +355,14 @@ func login(w http.ResponseWriter, r *http.Request) {
 		Error       string
 		SessionData SessionData
 	}{
-		Error: error,
-		SessionData: SessionData{
-			Flashes:  session.Flashes(),
-			Username: "",
-		},
+		Error:       error,
+		SessionData: SessionData{Flashes: session.Flashes()},
 	}
 	tmpl.Execute(w, data)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.Path)
 	session, _ := store.Get(r, "user-session")
 	user_id := session.Values["user_id"]
 	if user_id != nil {
@@ -352,16 +399,14 @@ func register(w http.ResponseWriter, r *http.Request) {
 		Error       string
 		SessionData SessionData
 	}{
-		Error: error,
-		SessionData: SessionData{
-			Flashes:  session.Flashes(),
-			Username: "",
-		},
+		Error:       error,
+		SessionData: SessionData{Flashes: session.Flashes()},
 	}
 	tmpl.Execute(w, data)
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
+	fmt.Println(r.URL.Path)
 	session, _ := store.Get(r, "user-session")
 	session.AddFlash("You were logged out")
 	delete(session.Values, "user_id")  //session.Values["user_id"] = nil

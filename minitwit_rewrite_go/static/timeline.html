@@ -1,71 +1,38 @@
 {{ template "base" .}}
-{{ define "title" }} Timeline {{ end }}
+{{ define "title" }} {{ timeline_title }} {{ end }}
 {{ define "body" }}
-<!--
- -> In doubt about how to connect this to the backend. A way to do this might be to create a global variable for the request in the main.go file but i am not sure
-{{define "title"}}
-  {{ if request.endpoint == 'public'}}
-    Public Timeline
-
-  {{ else if request.endpoint == 'user' }}
-    {{ profile_user.username }}'s Timeline
-
-  {{ else }}
-    My Timeline
-
-  {{end}}
-{{end}}
--->
-
-
-
-{{define "body"}}
-  <h2>{{block "title" .}}</h2>
-
-  {{ if .User}}
-    <!--{% if request.endpoint == 'user_timeline' %}  -> again, the request.endpoint messes a bit with me here, tried to rewrite it below-->
-    
-
-    <!-- I am in general very in doubt this will actualy work due to the stuff pointed out below-->
-    {{ if request.endpoint == 'user_timeline'}} <!-- i do not know if this is valid-->
-      <div class=followstatus>
-      {{if User.user_id == Profile_user.user_id}} <!-- i do not know what "Profile_user.user_id" points to-->
-        This is you!
-      {{else if followed}} <!-- I do not know if "followed" is implicitly defined or has to be explicitly defined in the backend-->
-        You are currently following this user.
-        <a class=unfollow href="{{ url_for('unfollow_user', username=profile_user.username)}}">Unfollow user</a>. <!-- i think we need to create a method to do this, since it uses 2 parameters-->
-      {{else}}
-        You are not yet following this user.
-        <a class=follow href="{{ url_for('follow_user', username=profile_user.username)}}">Follow user</a>.<!-- i think we need to create a method to do this, since it uses 2 parameters-->
-      {{end}}
-      </div>
-      
-    
-      <!--{% elif request.endpoint == 'timeline' %}  Again in doubt about this rewrite.. check above if in need of more details as of why-->
-      
-      {{else if request.endpoint == 'timeline'}}
+  <h2>{{ timeline_title }}</h2>
+  {{ if (ne .SessionData.User.Username "") }}
+    {{ if (eq .RequestUrl "/") }}
       <div class=twitbox>
-        <h3>What's on your mind {{ g.user.username }}?</h3>
-        <form action="{{/add_message}}" method=post>
-          <p><input type=text name=text size=60><!--
-          --><input type=submit value="Share">
+        <h3>What's on your mind {{ .SessionData.User.Username }}?</h3>
+        <form action="/add_message" method=post>
+          <p><input type=text name=text size=60>
+          <input type=submit value="Share">
         </form>
       </div>
-    {{end}}
-  {{end}}
-
+    {{ else if requestUserTimeline }}
+      <div class=followstatus>
+        {{ if (eq .SessionData.User.Username .Profile_User.Username)}}
+          This is you!
+        {{ else if .Followed }}
+          You are currently following this user.
+          <a class=unfollow href="/{{ .Profile_User.Username }}/unfollow">Unfollow user</a>.
+        {{ else }}
+          You are not yet following this user.
+          <a class=follow href="/{{ .Profile_User.Username }}/follow">Follow user</a>.
+        {{ end }}
+      </div>
+    {{ end }}
+  {{ end }}
   <ul class=messages>
-  {range Message.messages}
-    <li><img src="{{ message.email|gravatar(size=48) }}"><p> <!-- in doubt of how to rewrite this since the message table does not have email column -->
-
-      <!-- Rewritten such that the check is made on "User.id=message.author_id" instead of "username=message.username", since message struct does not contain username... if old way is wanted, username can be added to the message struct quite easily-->
-      <strong><a href="{{ url_for('user_timeline', User.id=message.author_id)}}">{{ User.id }}</a></strong> <!-- again i think there id a need for the "url_for" method in the backend-->
-      {{ message.text }}
-      <small>&mdash; {{ message.pub_date|datetimeformat }}</small> <!-- i do not know of this format, might need more googling-->
-  {{else}}
-    <li><em>There's no message so far.</em>
-  {{end}}
+    {{ range .Messages }}
+      <li><img src="{{ gravatar_url .email 48 }}"><p>
+      <strong><a href="/{{ .username }}">{{ .username }}</a></strong>
+        {{ .text }}
+      <small>&mdash; {{ format_datetime .pub_date }}</small>
+    {{ else }}
+      <li><em>There's no message so far.</em>
+    {{ end }}
   </ul>
-  
-{{end}}
-{{end}}
+{{ end }}
