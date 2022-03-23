@@ -19,11 +19,11 @@ import (
 	sqlite3 "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
 
-	"minitwit_rewrite/shared"
+	ctrl "minitwit/controllers"
 )
 
-var DATABASE = "../tmp/minitwit.db"
-var INIT_DB_SCHEMA = "../db_init.sql"
+var DATABASE = "/tmp/minitwit.db"
+var INIT_DB_SCHEMA = "../../db_init.sql"
 var PER_PAGE = 30
 var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 
@@ -33,19 +33,19 @@ var sq = sqlite3.ErrAbort
 
 type SessionData struct {
 	Flashes []interface{}
-	User    shared.User
+	User    ctrl.User
 }
 
 type TimelineData struct {
 	RequestUrl   string
 	Followed     bool
-	Profile_User shared.User
+	Profile_User ctrl.User
 	Messages     []map[string]interface{}
 	SessionData  SessionData
 }
 
 func main() {
-	shared.Init_db(INIT_DB_SCHEMA, DATABASE)
+	ctrl.Init_db(INIT_DB_SCHEMA, DATABASE)
 
 	r := mux.NewRouter()
 
@@ -64,7 +64,7 @@ func main() {
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
 	http.Handle("/", r)
 
-	db = shared.Connect_db(DATABASE)
+	db = ctrl.Connect_db(DATABASE)
 
 	srv := &http.Server{
 		Handler: r,
@@ -84,7 +84,7 @@ func favicon(w http.ResponseWriter, r *http.Request) {
 
 func get_user_id(username string) int64 {
 	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
-	rv := shared.HandleQuery(rows, err)
+	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
 		return rv[0]["user_id"].(int64)
@@ -117,10 +117,10 @@ func after_request() {
 
 }
 
-func getUserSession(r *http.Request) (*sessions.Session, shared.User) {
+func getUserSession(r *http.Request) (*sessions.Session, ctrl.User) {
 	session, _ := store.Get(r, "user-session")
 
-	user := shared.User{}
+	user := ctrl.User{}
 
 	if user_id := session.Values["user_id"]; user_id == nil {
 		user.Id = -1
@@ -139,12 +139,12 @@ func getMessages(r *http.Request, public bool) []map[string]interface{} {
 
 	if public {
 		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", PER_PAGE)
-		res := shared.HandleQuery(rows, err)
+		res := ctrl.HandleQuery(rows, err)
 		log.Printf("Showing %d results", len(res))
 		return res
 	} else {
 		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.Id, user.Id, PER_PAGE)
-		res := shared.HandleQuery(rows, err)
+		res := ctrl.HandleQuery(rows, err)
 		log.Printf("Showing %d results", len(res))
 		return res
 	}
@@ -175,7 +175,7 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 		},
 	}).ParseFiles("static/timeline.html", "static/layout.html")
 
-	shared.CheckError(err)
+	ctrl.CheckError(err)
 
 	return tmpl
 }
@@ -197,7 +197,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
 		Messages:    messages,
-		SessionData: SessionData{User: shared.User{Username: user.Username}},
+		SessionData: SessionData{User: ctrl.User{Username: user.Username}},
 	}
 
 	tmpl := setupTimelineTemplates(data)
@@ -214,7 +214,7 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
 		Messages:    messages,
-		SessionData: SessionData{User: shared.User{Username: user.Username}},
+		SessionData: SessionData{User: ctrl.User{Username: user.Username}},
 	}
 
 	tmpl := setupTimelineTemplates(data)
@@ -226,7 +226,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 
 	rows, err := db.Query("select * from user where username = ?", vars["username"])
-	profile_user := shared.HandleQuery(rows, err)
+	profile_user := ctrl.HandleQuery(rows, err)
 
 	if len(profile_user) < 1 {
 		w.WriteHeader(404)
@@ -238,7 +238,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 
 	if user.Id != -1 {
 		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.Id, profile_user[0]["user_id"].(int64))
-		res := shared.HandleQuery(rows, err)
+		res := ctrl.HandleQuery(rows, err)
 		followed = res != nil || len(res) != 0
 	}
 
@@ -246,8 +246,8 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 		RequestUrl:   r.URL.Path,
 		Followed:     followed,
 		Messages:     getMessages(r, true),
-		Profile_User: shared.User{Username: profile_user[0]["username"].(string)},
-		SessionData:  SessionData{User: shared.User{Username: user.Username}},
+		Profile_User: ctrl.User{Username: profile_user[0]["username"].(string)},
+		SessionData:  SessionData{User: ctrl.User{Username: user.Username}},
 	}
 
 	tmpl := setupTimelineTemplates(data)
@@ -269,7 +269,7 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err := db.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.Id, whom_id)
-	shared.CheckError(err)
+	ctrl.CheckError(err)
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
 	http.Redirect(w, r, str, http.StatusSeeOther)
@@ -290,7 +290,7 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_, err := db.Exec("delete from follower where who_id=? and whom_id=?", user.Id, whom_id)
-	shared.CheckError(err)
+	ctrl.CheckError(err)
 	session.AddFlash("You are no longer following %s", vars["username"])
 	session.Save(r, w)
 	str := "/" + vars["username"]
@@ -307,7 +307,7 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 	}
 	if r.FormValue("text") != "" {
 		_, err := db.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.Id, r.FormValue("text"), int(time.Now().Unix()))
-		shared.CheckError(err)
+		ctrl.CheckError(err)
 		session.AddFlash("Your message was recorded")
 		session.Save(r, w)
 	}
@@ -333,7 +333,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		inputPassword := r.FormValue("password")
 
 		rows, err := db.Query("select * from user where username = ?", inputUsername)
-		user := shared.HandleQuery(rows, err)
+		user := ctrl.HandleQuery(rows, err)
 
 		if user == nil {
 			error = "Invalid username"
@@ -350,7 +350,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl, err := template.ParseFiles("static/login.html", "static/layout.html")
-	shared.CheckError(err)
+	ctrl.CheckError(err)
 	data := struct {
 		Error       string
 		SessionData SessionData
@@ -383,10 +383,10 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r.FormValue("username")) != -1 {
 			error = "The username is already taken"
 		} else {
-			hashed_pw, err := shared.Generate_password_hash(r.FormValue("password"))
-			shared.CheckError(err)
+			hashed_pw, err := ctrl.Generate_password_hash(r.FormValue("password"))
+			ctrl.CheckError(err)
 			_, err = db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
-			shared.CheckError(err)
+			ctrl.CheckError(err)
 			session.AddFlash("You were successfully registered and can login now")
 			session.Save(r, w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)
@@ -394,7 +394,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	tmpl, err := template.ParseFiles("static/register.html", "static/layout.html")
-	shared.CheckError(err)
+	ctrl.CheckError(err)
 	data := struct {
 		Error       string
 		SessionData SessionData

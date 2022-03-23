@@ -1,4 +1,4 @@
-package shared
+package controllers
 
 import (
 	"database/sql"
