@@ -1,0 +1,11 @@
+version: "3.7"
+
+services:
+  minitwit-api:
+    image: salsitu/minitwitapi:latest
+    container_name: minitwit-api
+    restart: unless-stopped
+    ports:
+      - 8000:8001
+    volumes:
+      - $HOME/db/minitwit.db:/tmp/minitwit.db
