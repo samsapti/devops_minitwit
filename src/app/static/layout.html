@@ -4,18 +4,18 @@
 	<head>
 		<meta charset="UTF-8">
 		<title>{{ block "title" . }} Welcome {{ end }} | MiniTwit</title>
-    <link type=text/css href="./css/style.css"/>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css"/>
   </head>
 	<body>
     <div class="page">
       <h1>MiniTwit</h1>
       <div class="navigation">
-        {{ if (ne .SessionData.Username "") }}
-          <a href="timeline.html">My timeline</a>
-          <a href="timeline.html">public timeline</a> <!--Remove "{username}" when testing, there for reference-->
-          <a href="login.html">login</a>
+        {{ if (ne .SessionData.User.Username "") }}
+          <a href="/">my timeline</a>
+          <a href="/public">public timeline</a>
+          <a href="/logout">log out</a>
         {{ else }}
-          <a href="timeline.html">public timeline</a><!--the linking between pages are expected to fail at the moment. might need a function in the main.go to handle redirects? and call it with different "endpoints" as strings.-->
+          <a href="/public">public timeline</a>
           <a href="/register">sign up</a>
           <a href="/login">sign in</a>
         {{ end }}
@@ -24,9 +24,9 @@
         <ul class=flashes>
             <li>{{ . }}</li>
         </ul>
-      {{end}}
+      {{ end }}
       <div class="body">
-        {{block "body" .}} {{end}}
+        {{block "body" .}} {{ end }}
       </div>
       <div class=footer>
         MiniTwit &mdash; A Go Application

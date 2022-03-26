@@ -2,7 +2,7 @@
 {{ define "title" }} Sign In {{ end }}
 {{ define "body" }}
   <h2>Sign Up</h2>
-  {{ if .Error }}<div class=error><strong>Error:</strong> {{ .Error }}</div>{{end}}
+  {{ if .Error }}<div class=error><strong>Error:</strong> {{ .Error }}</div>{{ end }}
   <form action="" method=post>
     <dl>
       <dt>Username:

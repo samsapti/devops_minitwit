@@ -1,4 +1,4 @@
-package shared
+package controllers
 
 import (
 	"database/sql"
@@ -11,7 +11,7 @@ import (
 )
 
 type User struct {
-	Id       int    `json:"id"`
+	Id       int64  `json:"id"`
 	Username string `json:"username"`
 	Email    string `json:"email"`
 	Pw_hash  string `json:"pw_hash"`
@@ -77,8 +77,9 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 		values[i] = new(interface{})
 	}
 
-	dicts := make([]map[string]interface{}, len(cols))
-	dictIdx := 0
+	//var dicts []map[string]interface{}
+	dicts := make([]map[string]interface{}, 0)
+	//dictIdx := 0
 
 	rowsCount := 0
 
@@ -96,18 +97,21 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 			m[cols[i]] = val
 		}
 
-		dicts[dictIdx] = m
-		dictIdx++
+		dicts = append(dicts, m)
+		//dicts[dictIdx] = m
+		//dictIdx++
 	}
 
 	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
 
-	if rowsCount == 0 {
+	log.Printf("Length of dicts: %d", len(dicts))
+	return dicts
+	/* if rowsCount == 0 {
 		var noData []map[string]interface{}
 		return noData
 	} else {
 		return dicts
-	}
+	} */
 }
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/

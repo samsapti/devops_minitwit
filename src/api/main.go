@@ -11,20 +11,20 @@ import (
 
 	"github.com/gorilla/mux"
 
-	mt "minitwit_rewrite/shared"
+	ctrl "minitwit/controllers"
 )
 
 type Response struct {
 	Status int
 }
 
-var DATABASE = "../../tmp/minitwit.db"
+var DATABASE = "/tmp/minitwit.db"
 var INIT_DB_SCHEMA = "../../db_init.sql"
 var LATEST int = 0
 var db *sql.DB
 
 func main() {
-	mt.Init_db(INIT_DB_SCHEMA, DATABASE)
+	ctrl.Init_db(INIT_DB_SCHEMA, DATABASE)
 
 	port := 8000
 
@@ -48,7 +48,7 @@ func main() {
 	}
 
 	log.Printf("Starting API on port %d\n", port)
-	db = mt.Connect_db(DATABASE)
+	db = ctrl.Connect_db(DATABASE)
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
@@ -80,7 +80,7 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 
 func get_user_id(username string) int {
 	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
-	rv := mt.HandleQuery(rows, err)
+	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
 		return int(rv[0]["user_id"].(int64))
@@ -142,13 +142,13 @@ func register(w http.ResponseWriter, r *http.Request) {
 			status = 400
 		} else {
 			status = 204
-			db := mt.Connect_db(DATABASE)
-			hashed_pw, err := mt.Generate_password_hash(r_data.Pwd)
-			mt.CheckError(err)
+			db := ctrl.Connect_db(DATABASE)
+			hashed_pw, err := ctrl.Generate_password_hash(r_data.Pwd)
+			ctrl.CheckError(err)
 
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
 			res, err := db.Exec(query, r_data.Username, r_data.Email, hashed_pw)
-			mt.CheckError(err)
+			ctrl.CheckError(err)
 			logQueryInfo(res, "	Inserting user \"%s\" into database\n", r_data.Username)
 		}
 	}
@@ -178,12 +178,12 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
 		rows, err := db.Query(query, no_msgs)
-		messages := mt.HandleQuery(rows, err)
+		messages := ctrl.HandleQuery(rows, err)
 
-		var filtered_msgs []mt.Message
+		var filtered_msgs []ctrl.Message
 
 		for _, m := range messages {
-			filtered_msg := mt.Message{
+			filtered_msg := ctrl.Message{
 				Message_id: m["message_id"].(int),
 				Author_id:  m["author_id"].(int),
 				Text:       m["text"].(string),
@@ -223,12 +223,12 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user  WHERE message.flagged = 0 AND user.user_id = message.author_id AND user.user_id = ? ORDER BY message.pub_date DESC LIMIT ?"
 		rows, err := db.Query(query, no_msgs)
-		messages := mt.HandleQuery(rows, err)
+		messages := ctrl.HandleQuery(rows, err)
 
-		var filtered_msgs []mt.Message
+		var filtered_msgs []ctrl.Message
 
 		for _, m := range messages {
-			filtered_msg := mt.Message{
+			filtered_msg := ctrl.Message{
 				Message_id: m["message_id"].(int),
 				Author_id:  m["author_id"].(int),
 				Text:       m["text"].(string),
@@ -252,7 +252,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		username := mux.Vars(r)["username"]
 		json.NewDecoder(r.Body).Decode(&r_data)
 
-		rData := mt.Message{
+		rData := ctrl.Message{
 			Author_id: get_user_id(username),
 			Text:      r_data.Content,
 			Pub_date:  int(time.Now().Unix()),
@@ -367,7 +367,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 			w.Write(resp)
 			return
 		} else {
-			followers = mt.HandleQuery(rows, err)
+			followers = ctrl.HandleQuery(rows, err)
 		}
 
 		var follower_names []interface{}

@@ -1,4 +1,4 @@
-module minitwit_rewrite
+module minitwit
 
 go 1.17
 
