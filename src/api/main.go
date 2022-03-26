@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	ctrl "minitwit/controllers"
 )
@@ -18,17 +19,17 @@ type Response struct {
 	Status int
 }
 
-var DATABASE = "/tmp/minitwit.db"
-var INIT_DB_SCHEMA = "../../db_init.sql"
+var DATABASE, INIT_DB_SCHEMA string = "/tmp/minitwit.db", "../../db_init.sql"
 var LATEST int = 0
 var db *sql.DB
+
+const port int = 8000
 
 func main() {
 	ctrl.Init_db(INIT_DB_SCHEMA, DATABASE)
 
-	port := 8000
-
 	r := mux.NewRouter()
+	r.Use()
 
 	r.HandleFunc("/api/latest", get_latest)
 	r.HandleFunc("/api/register", register)
@@ -37,12 +38,27 @@ func main() {
 	r.HandleFunc("/api/msgs", messages)
 	r.HandleFunc("/api/msgs/{username}", messages_per_user)
 
-	http.Handle("/", r)
+	http.Handle("/", ctrl.MiddlewareMetrics(r))
+
+	/*
+		Prometheus metrics setup
+	*/
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	// Use goroutine because http.ListenAndServe() is a blocking method
+	go func() {
+		if err := http.ListenAndServe(":2112", nil); err != nil {
+			log.Fatal("Error: ", err)
+		}
+	}()
+
+	/*
+		Start API server
+	*/
 
 	srv := &http.Server{
-		Handler: r,
-		Addr:    "0.0.0.0:" + strconv.Itoa(port),
-		// Good practice: enforce timeouts for servers you create!
+		Addr:         "0.0.0.0:" + strconv.Itoa(port),
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
 	}
