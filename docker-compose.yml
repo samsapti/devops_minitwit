@@ -1,5 +1,11 @@
 version: "3.7"
 
+volumes:
+  caddy_config:
+  caddy_data:
+  grafana_data:
+  prometheus_data:
+
 services:
   caddy:
     image: caddy:2-alpine
@@ -9,8 +15,8 @@ services:
       DOMAINNAME: ${DOMAINNAME:-localhost:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./caddy_config:/config:rw
-      - ./caddy_data:/data:rw
+      - caddy_config:/config
+      - caddy_data:/data
     network_mode: host
     cap_drop:
       - ALL
@@ -45,7 +51,7 @@ services:
       GF_SERVER_ROOT_URL: "${SCHEME:-http}://${DOMAINNAME:-localhost}/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
-      - ./grafana_data:/var/lib/grafana
+      - grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"
     user: root
@@ -58,7 +64,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus_data:/prometheus/data
+      - prometheus_data:/prometheus/data
     ports:
       - "9090:9090"
     command: 
