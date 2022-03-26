@@ -5,6 +5,8 @@ services:
     image: caddy:2-alpine
     container_name: minitwit_caddy
     restart: unless-stopped
+    environment:
+      HOSTNAME: ${HOSTNAME:-localhost:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - ./caddy-data:/data:rw
@@ -49,8 +51,8 @@ services:
     container_name: minitwit_grafana
     restart: unless-stopped
     environment:
-      GF_SERVER_DOMAIN: "${GF_SERVER_DOMAIN:-http://localhost}"
-      GF_SERVER_ROOT_URL: "${GF_SERVER_ROOT_URL:-http://localhost}/grafana/"
+      GF_SERVER_DOMAIN: "${HOSTNAME:-http://localhost}"
+      GF_SERVER_ROOT_URL: "${HOSTNAME:-http://localhost}/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     ports:
       - "3000:3000"
