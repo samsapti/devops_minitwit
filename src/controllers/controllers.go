@@ -4,12 +4,7 @@ import (
 	"database/sql"
 	"io/ioutil"
 	"log"
-	"net/http"
 	"reflect"
-	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
@@ -34,18 +29,6 @@ type Message struct {
 	Pub_date   int    `json:"pub_date"`
 	Flagged    int    `json:"flagged"`
 }
-
-var (
-	apiRequestCount = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "api_request_count",
-		Help: "The total number of processed HTTP requests by the MiniTwit API",
-	})
-
-	requestDurationSummary = promauto.NewHistogram(prometheus.HistogramOpts{
-		Name: "request_duration",
-		Help: "Request duration distribution for HTTP requests to the MiniTwit API",
-	})
-)
 
 func CheckError(err error) bool {
 	if err != nil {
@@ -135,25 +118,4 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 func Generate_password_hash(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
-}
-
-func MiddlewareMetrics(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// BEFORE REQUEST
-		log.Println("middleware", r.URL)
-		start := time.Now()
-		//CPU_GAUGE.set(psutil.cpu_percent())
-
-		// REQUEST
-		h.ServeHTTP(w, r)
-
-		// AFTER REQUEST
-		apiRequestCount.Inc()                                      // api_request_count
-		requestDurationSummary.Observe(float64(time.Since(start))) // request_duration
-
-		//REPONSE_COUNTER.inc()
-
-		//t_elapsed_ms = (datetime.now() - request.start_time).total_seconds() * 1000
-		//REQ_DURATION_SUMMARY.observe(t_elapsed_ms)
-	})
 }

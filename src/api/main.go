@@ -13,6 +13,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	ctrl "minitwit/controllers"
+	mntr "minitwit/monitoring"
 )
 
 type Response struct {
@@ -38,7 +39,7 @@ func main() {
 	r.HandleFunc("/api/msgs", messages)
 	r.HandleFunc("/api/msgs/{username}", messages_per_user)
 
-	http.Handle("/", ctrl.MiddlewareMetrics(r))
+	http.Handle("/", mntr.MiddlewareMetrics(r))
 
 	/*
 		Prometheus metrics setup
