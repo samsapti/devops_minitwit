@@ -9,8 +9,8 @@ services:
       DOMAINNAME: ${DOMAINNAME:-localhost:80}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - ./caddy-data:/data:rw
-      - ./caddy-config:/config:rw
+      - ./caddy_data:/data:rw
+      - ./caddy_config:/config:rw
     network_mode: host
     cap_drop:
       - ALL
@@ -42,9 +42,15 @@ services:
     restart: unless-stopped
     volumes:
       - ./prometheus.yml:/prometheus/prometheus.yml
+      - ./prometheus_data:/prometheus_data
     ports:
       - "9090:9090"
-    command: ['--web.external-url=/prometheus/']
+    command: 
+      - '--web.external-url=/prometheus/'
+      - '--storage.tsdb.path=/prometheus_data'
+    depends_on:
+      - api
+      - app
 
   grafana:
     image: grafana/grafana-oss:latest
@@ -54,6 +60,10 @@ services:
       GF_SERVER_DOMAIN: "${SCHEME:-http}://${DOMAINNAME:-localhost}"
       GF_SERVER_ROOT_URL: "${SCHEME:-http}://${DOMAINNAME:-localhost}/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - ./grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"
+    depends_on:
+      - prometheus
 
