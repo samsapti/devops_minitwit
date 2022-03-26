@@ -1,7 +1,9 @@
 FROM docker.io/library/golang:1.18
 
+ARG branch=main
+
 WORKDIR /app
-RUN git clone "https://github.com/salsitu/minitwit_thesvindler.git"
+RUN git clone -b ${branch} "https://github.com/salsitu/minitwit_thesvindler.git"
 
 ENV GOOS=linux CGO_ENABLED=1
 
