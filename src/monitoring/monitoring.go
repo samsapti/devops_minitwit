@@ -1,12 +1,13 @@
 package monitoring
 
 import (
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/mackerelio/go-osstat/cpu"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"github.com/shirou/gopsutil/cpu"
 
 	ctrl "minitwit/controllers"
 )
@@ -32,11 +33,13 @@ func MiddlewareMetrics(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// BEFORE REQUEST
 		start := time.Now()
-		cpuUsage, err := cpu.Get()
+		cpuUsage, err := cpu.Percent(0, false)
 
 		if !ctrl.CheckError(err) {
-			cpuGauge.Set(float64(cpuUsage.Total))
+			cpuGauge.Set(float64(cpuUsage[0]))
 		}
+
+		log.Println()
 
 		// REQUEST
 		h.ServeHTTP(w, r)
