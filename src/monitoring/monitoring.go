@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"log"
 	"net/http"
 	"time"
 
@@ -36,10 +35,8 @@ func MiddlewareMetrics(h http.Handler) http.Handler {
 		cpuUsage, err := cpu.Percent(0, false)
 
 		if !ctrl.CheckError(err) {
-			cpuGauge.Set(float64(cpuUsage[0]))
+			cpuGauge.Set(cpuUsage[0])
 		}
-
-		log.Println()
 
 		// REQUEST
 		h.ServeHTTP(w, r)
