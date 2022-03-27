@@ -117,25 +117,26 @@ func after_request() {
 
 }
 
-func getUserSession(r *http.Request) (*sessions.Session, shared.User) {
+func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, shared.User) {
 	session, _ := store.Get(r, "user-session")
 
 	user := shared.User{}
 
-	if user_id := session.Values["user_id"]; user_id == nil {
+	if session.Values["user_id"] == nil || session.Values["username"] == nil {
 		user.Id = -1
 		user.Username = ""
+		clearUserSessionData(w, r)
 	} else {
-		user.Id = user_id.(int64)
+		user.Id = session.Values["user_id"].(int64)
 		user.Username = session.Values["username"].(string)
 	}
 
-	log.Println("getUserSession, User.Id is", user.Id)
+	log.Println("getUserSession, User:", user)
 	return session, user
 }
 
-func getMessages(r *http.Request, public bool) []map[string]interface{} {
-	_, user := getUserSession(r)
+func getMessages(w http.ResponseWriter, r *http.Request, public bool) []map[string]interface{} {
+	_, user := getUserSession(w, r)
 
 	if public {
 		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", PER_PAGE)
@@ -184,7 +185,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	fmt.Println("We got a visitor from: " + r.RemoteAddr)
 
-	_, user := getUserSession(r)
+	_, user := getUserSession(w, r)
 
 	if user.Username == "" {
 		http.Redirect(w, r, "/public", http.StatusSeeOther)
@@ -192,7 +193,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	// offset?
 
-	messages := getMessages(r, false)
+	messages := getMessages(w, r, false)
 
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
@@ -208,8 +209,8 @@ func public_timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	fmt.Println("public timeline!")
 
-	messages := getMessages(r, true)
-	_, user := getUserSession(r)
+	messages := getMessages(w, r, true)
+	_, user := getUserSession(w, r)
 
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
@@ -233,7 +234,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, user := getUserSession(r)
+	_, user := getUserSession(w, r)
 	followed := false
 
 	if user.Id != -1 {
@@ -245,7 +246,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	data := TimelineData{
 		RequestUrl:   r.URL.Path,
 		Followed:     followed,
-		Messages:     getMessages(r, true),
+		Messages:     getMessages(w, r, true),
 		Profile_User: shared.User{Username: profile_user[0]["username"].(string)},
 		SessionData:  SessionData{User: shared.User{Username: user.Username}},
 	}
@@ -257,7 +258,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 func follow_user(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 
-	session, user := getUserSession(r)
+	session, user := getUserSession(w, r)
 	if user.Username == "" {
 		w.WriteHeader(401)
 		return
@@ -278,7 +279,7 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 func unfollow_user(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 
-	session, user := getUserSession(r)
+	session, user := getUserSession(w, r)
 	if user.Username == "" {
 		w.WriteHeader(401)
 		return
@@ -299,7 +300,7 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 
 func add_message(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
-	session, user := getUserSession(r)
+	session, user := getUserSession(w, r)
 
 	if user.Id == -1 {
 		w.WriteHeader(401)
@@ -317,7 +318,7 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 func login(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 
-	session, user := getUserSession(r)
+	session, user := getUserSession(w, r)
 	user_id := user.Id
 	username := user.Username
 	if user_id != -1 {
@@ -409,10 +410,15 @@ func logout(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	session, _ := store.Get(r, "user-session")
 	session.AddFlash("You were logged out")
+	clearUserSessionData(w, r)
+	http.Redirect(w, r, "/public", http.StatusSeeOther)
+}
+
+func clearUserSessionData(w http.ResponseWriter, r *http.Request) {
+	session, _ := store.Get(r, "user-session")
 	delete(session.Values, "user_id")  //session.Values["user_id"] = nil
 	delete(session.Values, "username") //session.Values["username"] = nil
 	session.Save(r, w)
-	http.Redirect(w, r, "/public", http.StatusSeeOther)
 }
 
 // The function below has been copied from: https://gowebexamples.com/password-hashing/
