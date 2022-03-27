@@ -20,14 +20,17 @@ type Response struct {
 	Status int
 }
 
-var DATABASE, INIT_DB_SCHEMA string = "/tmp/minitwit.db", "../../db_init.sql"
-var LATEST int = 0
-var db *sql.DB
+var (
+	DB     *sql.DB
+	latest = 0
+)
 
-const port int = 8000
+const (
+	port = 8000
+)
 
 func main() {
-	ctrl.Init_db(INIT_DB_SCHEMA, DATABASE)
+	ctrl.Init_db(ctrl.InitDBSchema, ctrl.DBPath)
 
 	r := mux.NewRouter()
 	r.Use()
@@ -64,8 +67,8 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
+	DB = ctrl.Connect_db(ctrl.DBPath)
 	log.Printf("Starting API on port %d\n", port)
-	db = ctrl.Connect_db(DATABASE)
 
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
@@ -96,7 +99,7 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 }
 
 func get_user_id(username string) int {
-	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
+	rows, err := DB.Query("SELECT user.user_id FROM user WHERE username = ?", username)
 	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
@@ -115,7 +118,7 @@ func update_latest(r *http.Request) {
 	}
 
 	if val != -1 {
-		LATEST = val
+		latest = val
 	}
 }
 func get_latest(w http.ResponseWriter, r *http.Request) {
@@ -123,7 +126,7 @@ func get_latest(w http.ResponseWriter, r *http.Request) {
 	latest_struct := struct {
 		Latest int `json:"latest"`
 	}{
-		LATEST,
+		latest,
 	}
 	resp, _ := json.Marshal(latest_struct)
 	w.Write(resp)
@@ -159,7 +162,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			status = 400
 		} else {
 			status = 204
-			db := ctrl.Connect_db(DATABASE)
+			db := ctrl.Connect_db(ctrl.DBPath)
 			hashed_pw, err := ctrl.Generate_password_hash(r_data.Pwd)
 			ctrl.CheckError(err)
 
@@ -194,7 +197,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	no_msgs := val
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
-		rows, err := db.Query(query, no_msgs)
+		rows, err := DB.Query(query, no_msgs)
 		messages := ctrl.HandleQuery(rows, err)
 
 		var filtered_msgs []ctrl.Message
@@ -239,7 +242,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user  WHERE message.flagged = 0 AND user.user_id = message.author_id AND user.user_id = ? ORDER BY message.pub_date DESC LIMIT ?"
-		rows, err := db.Query(query, no_msgs)
+		rows, err := DB.Query(query, no_msgs)
 		messages := ctrl.HandleQuery(rows, err)
 
 		var filtered_msgs []ctrl.Message
@@ -276,7 +279,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-		if res, err := db.Exec(query, rData.Author_id, rData.Text, rData.Pub_date); err != nil {
+		if res, err := DB.Exec(query, rData.Author_id, rData.Text, rData.Pub_date); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -330,7 +333,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
-		if res, err := db.Exec(query, user_id, follows_user_id); err != nil {
+		if res, err := DB.Exec(query, user_id, follows_user_id); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -355,7 +358,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
-		if res, err := db.Exec(query, user_id, unfollows_user_id); err != nil {
+		if res, err := DB.Exec(query, user_id, unfollows_user_id); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -378,7 +381,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
 		var followers []map[string]interface{}
-		if rows, err := db.Query(query, user_id, val); err != nil {
+		if rows, err := DB.Query(query, user_id, val); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)

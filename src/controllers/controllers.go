@@ -30,6 +30,11 @@ type Message struct {
 	Flagged    int    `json:"flagged"`
 }
 
+const (
+	DBPath       = "/tmp/minitwit.db"
+	InitDBSchema = "../../db_init.sql"
+)
+
 func CheckError(err error) bool {
 	if err != nil {
 		log.Printf("Error: %s\n", err)

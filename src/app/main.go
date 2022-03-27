@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 
 	"crypto/md5"
 	"encoding/hex"
@@ -16,20 +17,13 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	sqlite3 "github.com/mattn/go-sqlite3"
+
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/crypto/bcrypt"
 
 	ctrl "minitwit/controllers"
+	mntr "minitwit/monitoring"
 )
-
-var DATABASE = "/tmp/minitwit.db"
-var INIT_DB_SCHEMA = "../../db_init.sql"
-var PER_PAGE = 30
-var store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
-
-var db *sql.DB
-
-var sq = sqlite3.ErrAbort
 
 type SessionData struct {
 	Flashes []interface{}
@@ -44,8 +38,18 @@ type TimelineData struct {
 	SessionData  SessionData
 }
 
+var (
+	DB    *sql.DB
+	store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
+)
+
+const (
+	perPage = 30
+	port    = 8080
+)
+
 func main() {
-	ctrl.Init_db(INIT_DB_SCHEMA, DATABASE)
+	ctrl.Init_db(ctrl.InitDBSchema, ctrl.DBPath)
 
 	r := mux.NewRouter()
 
@@ -62,28 +66,44 @@ func main() {
 	r.HandleFunc("/{username}", user_timeline)
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
-	http.Handle("/", r)
 
-	db = ctrl.Connect_db(DATABASE)
+	http.Handle("/", mntr.MiddlewareMetrics(r))
+
+	/*
+		Prometheus metrics setup
+	*/
+
+	http.Handle("/metrics", promhttp.Handler())
+
+	// Use goroutine because http.ListenAndServe() is a blocking method
+	go func() {
+		if err := http.ListenAndServe(":2112", nil); err != nil {
+			log.Fatal("Error: ", err)
+		}
+	}()
+
+	/*
+		Start app server
+	*/
 
 	srv := &http.Server{
-		Handler: r,
-		Addr:    "0.0.0.0:8000",
-		// Good practice: enforce timeouts for servers you create!
+		Addr:         "0.0.0.0:" + strconv.Itoa(port),
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
 	}
+
+	DB = ctrl.Connect_db(ctrl.DBPath)
+	log.Printf("Starting app on port %d\n", port)
+
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal("Error: ", err)
 	}
 }
 
-func favicon(w http.ResponseWriter, r *http.Request) {
-
-}
+func favicon(w http.ResponseWriter, r *http.Request) {}
 
 func get_user_id(username string) int64 {
-	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
+	rows, err := DB.Query("SELECT user.user_id FROM user WHERE username = ?", username)
 	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
@@ -109,14 +129,6 @@ func gravatar_url(email string, size int) string {
 	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(md.Sum(nil)), size)
 }
 
-func before_request() {
-
-}
-
-func after_request() {
-
-}
-
 func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, ctrl.User) {
 	session, _ := store.Get(r, "user-session")
 
@@ -139,12 +151,12 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool) []map[stri
 	_, user := getUserSession(w, r)
 
 	if public {
-		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", PER_PAGE)
+		rows, err := DB.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", perPage)
 		res := ctrl.HandleQuery(rows, err)
 		log.Printf("Showing %d results", len(res))
 		return res
 	} else {
-		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.Id, user.Id, PER_PAGE)
+		rows, err := DB.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.Id, user.Id, perPage)
 		res := ctrl.HandleQuery(rows, err)
 		log.Printf("Showing %d results", len(res))
 		return res
@@ -226,7 +238,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	vars := mux.Vars(r)
 
-	rows, err := db.Query("select * from user where username = ?", vars["username"])
+	rows, err := DB.Query("select * from user where username = ?", vars["username"])
 	profile_user := ctrl.HandleQuery(rows, err)
 
 	if len(profile_user) < 1 {
@@ -238,7 +250,7 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	followed := false
 
 	if user.Id != -1 {
-		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.Id, profile_user[0]["user_id"].(int64))
+		rows, err := DB.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.Id, profile_user[0]["user_id"].(int64))
 		res := ctrl.HandleQuery(rows, err)
 		followed = res != nil || len(res) != 0
 	}
@@ -269,7 +281,7 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.Id, whom_id)
+	_, err := DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.Id, whom_id)
 	ctrl.CheckError(err)
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
@@ -290,7 +302,7 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Exec("delete from follower where who_id=? and whom_id=?", user.Id, whom_id)
+	_, err := DB.Exec("delete from follower where who_id=? and whom_id=?", user.Id, whom_id)
 	ctrl.CheckError(err)
 	session.AddFlash("You are no longer following %s", vars["username"])
 	session.Save(r, w)
@@ -307,7 +319,7 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.FormValue("text") != "" {
-		_, err := db.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.Id, r.FormValue("text"), int(time.Now().Unix()))
+		_, err := DB.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.Id, r.FormValue("text"), int(time.Now().Unix()))
 		ctrl.CheckError(err)
 		session.AddFlash("Your message was recorded")
 		session.Save(r, w)
@@ -333,7 +345,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		inputUsername := r.FormValue("username")
 		inputPassword := r.FormValue("password")
 
-		rows, err := db.Query("select * from user where username = ?", inputUsername)
+		rows, err := DB.Query("select * from user where username = ?", inputUsername)
 		user := ctrl.HandleQuery(rows, err)
 
 		if user == nil {
@@ -386,7 +398,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else {
 			hashed_pw, err := ctrl.Generate_password_hash(r.FormValue("password"))
 			ctrl.CheckError(err)
-			_, err = db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
+			_, err = DB.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
 			ctrl.CheckError(err)
 			session.AddFlash("You were successfully registered and can login now")
 			session.Save(r, w)

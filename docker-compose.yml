@@ -40,7 +40,7 @@ services:
     volumes:
       - $HOME/db:/app/minitwit_thesvindler/tmp
     ports:
-      - "8080:8000"
+      - "8080:8080"
 
   grafana:
     image: grafana/grafana-oss:latest
