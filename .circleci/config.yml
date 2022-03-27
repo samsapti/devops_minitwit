@@ -27,11 +27,11 @@ jobs:
       - image: buildpack-deps:trusty
     steps:
       - checkout
-      - run: scp -o "StrictHostKeyChecking no" Caddyfile docker-compose.yml prometheus.yml ${MT_USER}@${MT_SERVER}:/home/${MT_USER}/docker_minitwit/
       - run: |
           ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
-          "cd ~/docker_minitwit && \
+          "cd ~/minitwit_thesvindler && \
           docker-compose down && \
+          git pull && \
           docker-compose pull && \
           docker system prune -f && \
           docker-compose up -d"
