@@ -8,26 +8,32 @@ jobs:
   build:
     working_directory: /app
     docker:
-      - image: docker:17.05.0-ce-git
+      - image: docker:latest
     steps:
       - checkout
       - setup_remote_docker
-      - run: echo "BUILD"
-      - run: docker build -t $DOCKER_USERNAME/minitwitimage:latest .
+      - run: echo "BUILD API"
+      - run: docker build -f api.Dockerfile -t $DOCKER_USERNAME/minitwitapi:latest .
+      - run: echo "BUILD APP"
+      - run: docker build -f app.Dockerfile -t $DOCKER_USERNAME/minitwitapp:latest .
       - run: echo "LOGIN"
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: echo "PUSH"
-      - run: docker push $DOCKER_USERNAME/minitwitimage:latest
+      - run: docker push $DOCKER_USERNAME/minitwitapi:latest
+      - run: docker push $DOCKER_USERNAME/minitwitapp:latest
 
   deploy:
     docker:
       - image: buildpack-deps:trusty
     steps:
+      - checkout
       - run: |
           ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
-          "cd ~/docker_minitwit && \
+          "cd ~/minitwit_thesvindler && \
           docker-compose down && \
+          git pull && \
           docker-compose pull && \
+          docker system prune -f && \
           docker-compose up -d"
 
 workflows:

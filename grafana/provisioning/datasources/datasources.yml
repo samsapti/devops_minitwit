@@ -1,0 +1,13 @@
+# config file version
+apiVersion: 1
+
+datasources:
+  - name: 'MiniTwit Prometheus'
+    uid: "LNIhCHs7k"
+    type: 'prometheus'
+    org_id: 1
+    access: 'proxy'
+    is_default: true
+    editable: false
+    url: 'http://prometheus:9090/prometheus/'
+    version: 1

@@ -1,0 +1,37 @@
+{{ define "base" }}
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="UTF-8">
+		<title>{{ block "title" . }} Welcome {{ end }} | MiniTwit</title>
+    <link rel="stylesheet" type="text/css" href="/static/css/style.css"/>
+  </head>
+	<body>
+    <div class="page">
+      <h1>MiniTwit</h1>
+      <div class="navigation">
+        {{ if (ne .SessionData.User.Username "") }}
+          <a href="/">my timeline</a>
+          <a href="/public">public timeline</a>
+          <a href="/logout">log out</a>
+        {{ else }}
+          <a href="/public">public timeline</a>
+          <a href="/register">sign up</a>
+          <a href="/login">sign in</a>
+        {{ end }}
+      </div>
+      {{ range .SessionData.Flashes }}
+        <ul class=flashes>
+            <li>{{ . }}</li>
+        </ul>
+      {{ end }}
+      <div class="body">
+        {{block "body" .}} {{ end }}
+      </div>
+      <div class=footer>
+        MiniTwit &mdash; A Go Application
+      </div>
+    </div>
+	</body>
+</html>
+{{ end }}
