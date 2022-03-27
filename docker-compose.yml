@@ -32,6 +32,9 @@ services:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
     ports:
       - "8000:8000"
+    depends_on:
+      - grafana
+      - prometheus
 
   app:
     image: salsitu/minitwitapp:latest
@@ -41,6 +44,9 @@ services:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
     ports:
       - "8080:8080"
+    depends_on:
+      - grafana
+      - prometheus
 
   grafana:
     image: grafana/grafana-oss:latest
@@ -50,13 +56,11 @@ services:
       GF_SERVER_DOMAIN: "${SCHEME:-http}://${DOMAINNAME:-localhost}"
       GF_SERVER_ROOT_URL: "${SCHEME:-http}://${DOMAINNAME:-localhost}/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    user: root
     volumes:
       - grafana_data:/var/lib/grafana
     ports:
       - "3000:3000"
-    user: root
-    depends_on:
-      - prometheus
 
   prometheus:
     image: prom/prometheus:latest
