@@ -42,7 +42,7 @@ func main() {
 	r.HandleFunc("/api/msgs", messages)
 	r.HandleFunc("/api/msgs/{username}", messages_per_user)
 
-	http.Handle("/", mntr.MiddlewareMetrics(r))
+	http.Handle("/", mntr.MiddlewareMetrics(r, true))
 
 	/*
 		Prometheus metrics setup

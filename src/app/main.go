@@ -67,7 +67,7 @@ func main() {
 	r.HandleFunc("/{username}/follow", follow_user)
 	r.HandleFunc("/{username}/unfollow", unfollow_user)
 
-	http.Handle("/", mntr.MiddlewareMetrics(r))
+	http.Handle("/", mntr.MiddlewareMetrics(r, false))
 
 	/*
 		Prometheus metrics setup

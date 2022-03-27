@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"net/http"
 	"time"
 
@@ -12,9 +13,14 @@ import (
 )
 
 var (
-	cpuGauge = promauto.NewGauge(prometheus.GaugeOpts{
-		Name: "cpu_load",
-		Help: "The CPU load percentage",
+	apiCPUGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "api_cpu_load",
+		Help: "The CPU load percentage for the MiniTwit API",
+	})
+
+	appCPUGauge = promauto.NewGauge(prometheus.GaugeOpts{
+		Name: "app_cpu_load",
+		Help: "The CPU load percentage for the MiniTwit app",
 	})
 
 	apiRequestCount = promauto.NewCounter(prometheus.CounterOpts{
@@ -22,27 +28,47 @@ var (
 		Help: "The total number of processed HTTP requests by the MiniTwit API",
 	})
 
-	requestDurationSummary = promauto.NewHistogram(prometheus.HistogramOpts{
+	appRequestCount = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "app_request_count",
+		Help: "The total number of processed HTTP requests by the MiniTwit app",
+	})
+
+	apiRequestDurationSummary = promauto.NewHistogram(prometheus.HistogramOpts{
 		Name: "api_request_duration",
 		Help: "Request duration distribution for HTTP requests to the MiniTwit API",
 	})
+
+	appRequestDurationSummary = promauto.NewHistogram(prometheus.HistogramOpts{
+		Name: "app_request_duration",
+		Help: "Request duration distribution for HTTP requests to the MiniTwit app",
+	})
 )
 
-func MiddlewareMetrics(h http.Handler) http.Handler {
+func MiddlewareMetrics(h http.Handler, isApi bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// BEFORE REQUEST
 		start := time.Now()
 		cpuUsage, err := cpu.Percent(0, false)
+		log.Println(isApi)
 
 		if !ctrl.CheckError(err) {
-			cpuGauge.Set(cpuUsage[0])
+			if isApi {
+				apiCPUGauge.Set(cpuUsage[0])
+			} else {
+				appCPUGauge.Set(cpuUsage[0])
+			}
 		}
 
 		// REQUEST
 		h.ServeHTTP(w, r)
 
 		// AFTER REQUEST
-		apiRequestCount.Inc()                                      // api_request_count
-		requestDurationSummary.Observe(float64(time.Since(start))) // request_duration
+		if isApi {
+			apiRequestCount.Inc()
+			apiRequestDurationSummary.Observe(float64(time.Since(start)))
+		} else {
+			appRequestCount.Inc()
+			appRequestDurationSummary.Observe(float64(time.Since(start)))
+		}
 	})
 }
