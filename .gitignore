@@ -30,7 +30,4 @@ go.work
 
 # End of https://www.toptal.com/developers/gitignore/api/go
 
-/caddy_config/
-/caddy_data/
-/prometheus_data/
-/grafana_data/
+.env
