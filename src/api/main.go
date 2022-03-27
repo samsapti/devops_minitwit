@@ -182,19 +182,23 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	update_latest(r)
 
 	not_from_sim_response := not_req_from_simulator(w, r)
+
 	if not_from_sim_response != nil {
 		w.WriteHeader(403)
 		w.Write(not_from_sim_response)
+		return
 	}
 
 	def := 100
 	vars := mux.Vars(r)
 	val := def
+
 	if len(vars) != 0 {
 		val, _ = strconv.Atoi(vars["no"])
 	}
 
 	no_msgs := val
+
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
 		rows, err := DB.Query(query, no_msgs)
@@ -217,6 +221,8 @@ func messages(w http.ResponseWriter, r *http.Request) {
 		resp, _ := json.Marshal(filtered_msgs)
 		w.WriteHeader(200)
 		w.Write(resp)
+	} else {
+		w.WriteHeader(405) // Method Not Allowed
 	}
 }
 
