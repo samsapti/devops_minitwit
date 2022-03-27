@@ -23,11 +23,11 @@ type Follower struct {
 }
 
 type Message struct {
-	Message_id int    `json:"message_id"`
-	Author_id  int    `json:"author_id"`
+	Message_id int64  `json:"message_id"`
+	Author_id  int64  `json:"author_id"`
 	Text       string `json:"text"`
-	Pub_date   int    `json:"pub_date"`
-	Flagged    int    `json:"flagged"`
+	Pub_date   int64  `json:"pub_date"`
+	Flagged    int64  `json:"flagged"`
 }
 
 const (

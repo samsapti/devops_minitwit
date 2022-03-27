@@ -98,12 +98,12 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 	return nil
 }
 
-func get_user_id(username string) int {
+func get_user_id(username string) int64 {
 	rows, err := DB.Query("SELECT user.user_id FROM user WHERE username = ?", username)
 	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
-		return int(rv[0]["user_id"].(int64))
+		return rv[0]["user_id"].(int64)
 	}
 
 	return -1
@@ -208,16 +208,17 @@ func messages(w http.ResponseWriter, r *http.Request) {
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				Message_id: m["message_id"].(int),
-				Author_id:  m["author_id"].(int),
+				Message_id: m["message_id"].(int64),
+				Author_id:  m["author_id"].(int64),
 				Text:       m["text"].(string),
-				Pub_date:   m["pub_date"].(int),
-				Flagged:    m["flagged"].(int),
+				Pub_date:   m["pub_date"].(int64),
+				Flagged:    m["flagged"].(int64),
 			}
 
 			filtered_msgs = append(filtered_msgs, filtered_msg)
 		}
 
+		log.Println(len(filtered_msgs))
 		resp, _ := json.Marshal(filtered_msgs)
 		w.WriteHeader(200)
 		w.Write(resp)
@@ -255,11 +256,11 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				Message_id: m["message_id"].(int),
-				Author_id:  m["author_id"].(int),
+				Message_id: m["message_id"].(int64),
+				Author_id:  m["author_id"].(int64),
 				Text:       m["text"].(string),
-				Pub_date:   m["pub_date"].(int),
-				Flagged:    m["flagged"].(int),
+				Pub_date:   m["pub_date"].(int64),
+				Flagged:    m["flagged"].(int64),
 			}
 
 			filtered_msgs = append(filtered_msgs, filtered_msg)
@@ -281,7 +282,7 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		rData := ctrl.Message{
 			Author_id: get_user_id(username),
 			Text:      r_data.Content,
-			Pub_date:  int(time.Now().Unix()),
+			Pub_date:  time.Now().Unix(),
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
