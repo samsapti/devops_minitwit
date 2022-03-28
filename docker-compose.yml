@@ -1,4 +1,4 @@
-version: "3.7"
+version: "3.8"
 
 volumes:
   caddy_config:
@@ -17,7 +17,9 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_config:/config
       - caddy_data:/data
-    network_mode: host
+    ports:
+      - "127.0.0.1:80:80"
+      - "127.0.0.1:443:443"
     cap_drop:
       - ALL
     cap_add:
@@ -31,7 +33,7 @@ services:
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       - grafana
       - prometheus
@@ -43,7 +45,7 @@ services:
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     depends_on:
       - grafana
       - prometheus
@@ -60,22 +62,21 @@ services:
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     user: root
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning
-      - ./grafana/dashboards:/var/lib/grafana/dashboards
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:eo
       - grafana_data:/var/lib/grafana
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   prometheus:
     image: prom/prometheus:latest
     container_name: minitwit_prometheus
     restart: unless-stopped
+    user: root
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus/data
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     command: 
       - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--web.external-url=/prometheus/'
-    user: root

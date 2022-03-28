@@ -1,10 +1,8 @@
 {$DOMAINNAME} {
-    reverse_proxy localhost:8080
-    reverse_proxy /api/* localhost:8000
-    reverse_proxy /grafana/* localhost:3000
-    reverse_proxy /prometheus/* localhost:9090
-
     rewrite /api /api/
     rewrite /grafana /grafana/
-    rewrite /prometheus /prometheus/
+
+    reverse_proxy app:8080
+    reverse_proxy /api/* api:8000
+    reverse_proxy /grafana/* grafana:3000
 }
