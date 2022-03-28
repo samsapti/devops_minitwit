@@ -70,10 +70,11 @@
     "to": "now"
   },
   "timepicker": {
-    "hidden": true,
+    "hidden": false,
     "refresh_intervals": [
       "5s",
       "10s",
+      "15s",
       "30s",
       "1m",
       "5m",
@@ -101,9 +102,3 @@
   "version": 0,
   "weekStart": ""
 }
-
-
-
-
-
-

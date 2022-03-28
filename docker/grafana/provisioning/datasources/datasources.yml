@@ -1,4 +1,3 @@
-# config file version
 apiVersion: 1
 
 datasources:
@@ -9,5 +8,5 @@ datasources:
     access: 'proxy'
     is_default: true
     editable: false
-    url: 'http://prometheus:9090/prometheus/'
+    url: 'http://prometheus:9090'
     version: 1
