@@ -32,7 +32,7 @@ type Message struct {
 
 const (
 	DBPath       = "/tmp/minitwit.db"
-	InitDBSchema = "../../db_init.sql"
+	InitDBSchema = "../sql/db_init.sql"
 )
 
 func CheckError(err error) bool {
