@@ -14,7 +14,7 @@ services:
     environment:
       DOMAINNAME: ${DOMAINNAME:-localhost:80}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_config:/config
       - caddy_data:/data
     ports:
@@ -62,8 +62,8 @@ services:
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     user: root
     volumes:
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:eo
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:eo
       - grafana_data:/var/lib/grafana
     ports:
       - "127.0.0.1:3000:3000"
@@ -73,10 +73,9 @@ services:
     container_name: minitwit_prometheus
     restart: unless-stopped
     user: root
+    command: --config.file=/etc/prometheus/prometheus.yml
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus/data
     ports:
       - "127.0.0.1:9090:9090"
-    command: 
-      - '--config.file=/etc/prometheus/prometheus.yml'

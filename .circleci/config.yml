@@ -13,9 +13,9 @@ jobs:
       - checkout
       - setup_remote_docker
       - run: echo "BUILD API"
-      - run: docker build -f api.Dockerfile -t $DOCKER_USERNAME/minitwitapi:latest .
+      - run: docker build -f docker/api.Dockerfile -t $DOCKER_USERNAME/minitwitapi:latest .
       - run: echo "BUILD APP"
-      - run: docker build -f app.Dockerfile -t $DOCKER_USERNAME/minitwitapp:latest .
+      - run: docker build -f docker/app.Dockerfile -t $DOCKER_USERNAME/minitwitapp:latest .
       - run: echo "LOGIN"
       - run: docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
       - run: echo "PUSH"
