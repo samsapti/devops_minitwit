@@ -18,8 +18,8 @@ type User struct {
 }
 
 type Follower struct {
-	Follower_id int `json:"follower_id"`
-	Followed_id int `json:"followed_id"`
+	Follower_id int64 `json:"follower_id"`
+	Followed_id int64 `json:"followed_id"`
 }
 
 type Message struct {
