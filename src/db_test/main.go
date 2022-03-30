@@ -48,8 +48,8 @@ func main() {
 		USERS TEST
 	*/
 
-	pwSals, _ := ctrl.Generate_password_hash("sals_secure_passwd")
-	pwJkof, _ := ctrl.Generate_password_hash("jkof_secure_passwd")
+	pwSals, _ := ctrl.GenPasswdHash("sals_secure_passwd")
+	pwJkof, _ := ctrl.GenPasswdHash("jkof_secure_passwd")
 
 	db.Create(&User{
 		Username: "sals",

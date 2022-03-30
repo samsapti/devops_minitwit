@@ -396,7 +396,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r.FormValue("username")) != -1 {
 			error = "The username is already taken"
 		} else {
-			hashed_pw, err := ctrl.Generate_password_hash(r.FormValue("password"))
+			hashed_pw, err := ctrl.GenPasswdHash(r.FormValue("password"))
 			ctrl.CheckError(err)
 			_, err = DB.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
 			ctrl.CheckError(err)

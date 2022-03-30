@@ -111,16 +111,10 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 
 	log.Printf("Length of dicts: %d", len(dicts))
 	return dicts
-	/* if rowsCount == 0 {
-		var noData []map[string]interface{}
-		return noData
-	} else {
-		return dicts
-	} */
 }
 
-// The function below has been copied from: https://gowebexamples.com/password-hashing/
-func Generate_password_hash(password string) (string, error) {
+// The function below has been borrowed from: https://gowebexamples.com/password-hashing/
+func GenPasswdHash(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
 }

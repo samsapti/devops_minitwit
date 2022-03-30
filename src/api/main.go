@@ -163,7 +163,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else {
 			status = 204
 			db := ctrl.Connect_db(ctrl.DBPath)
-			hashed_pw, err := ctrl.Generate_password_hash(r_data.Pwd)
+			hashed_pw, err := ctrl.GenPasswdHash(r_data.Pwd)
 			ctrl.CheckError(err)
 
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"
