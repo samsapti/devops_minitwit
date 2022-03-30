@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -21,7 +22,7 @@ type Response struct {
 }
 
 var (
-	DB     *sql.DB
+	db     *sql.DB
 	latest = 0
 )
 
@@ -31,17 +32,17 @@ const (
 
 func main() {
 	ctrl.InitDB(ctrl.InitDBSchema, ctrl.DBPath)
-
 	r := mux.NewRouter()
-	r.Use()
 
-	r.HandleFunc("/api/latest", get_latest)
+	// Endpoints
+	r.HandleFunc("/api/latest", getLatest)
 	r.HandleFunc("/api/register", register)
 	r.HandleFunc("/api/fllws/{username}", follow)
-	r.HandleFunc("/api/msgs/{username}", messages_per_user)
+	r.HandleFunc("/api/msgs/{username}", messagesPerUser)
 	r.HandleFunc("/api/msgs", messages)
-	r.HandleFunc("/api/msgs/{username}", messages_per_user)
+	r.HandleFunc("/api/msgs/{username}", messagesPerUser)
 
+	// Register r as HTTP handler
 	http.Handle("/", mntr.MiddlewareMetrics(r, true))
 
 	/*
@@ -67,7 +68,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	DB = ctrl.ConnectDB(ctrl.DBPath)
+	db = ctrl.ConnectDB(ctrl.DBPath)
 	log.Printf("Starting API on port %d\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -82,34 +83,23 @@ func logQueryInfo(res sql.Result, query string, queryData string) {
 	log.Printf("	affected rows: %d, LastInsertId: %d", affected, lastInsert)
 }
 
-func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
-	from_simulator := r.Header.Get("Authorization")
-	if from_simulator != "Basic c2ltdWxhdG9yOnN1cGVyX3NhZmUh" {
+func notReqFromSimulator(w http.ResponseWriter, r *http.Request) []byte {
+	if r.Header.Get("Authorization") != os.Getenv("SIM_AUTH") {
 		w.Header().Set("Content-Type", "application/json")
-		response := map[string]interface{}{
+
+		response, _ := json.Marshal(map[string]interface{}{
 			"status": http.StatusForbidden,
 			"error":  "You are not authorized to use this resource!",
-		}
-		resp, _ := json.Marshal(response)
-		w.Write(resp)
-		return resp
+		})
 
+		w.Write(response)
+		return response
 	}
+
 	return nil
 }
 
-func get_user_id(username string) int32 {
-	rows, err := DB.Query("SELECT user.user_id FROM user WHERE username = ?", username)
-	rv := ctrl.HandleQuery(rows, err)
-
-	if rv != nil || len(rv) != 0 {
-		return rv[0]["user_id"].(int32)
-	}
-
-	return -1
-}
-
-func update_latest(r *http.Request) {
+func updateLatest(r *http.Request) {
 	params := r.URL.Query()
 	def := -1
 	val := def
@@ -121,7 +111,7 @@ func update_latest(r *http.Request) {
 		latest = val
 	}
 }
-func get_latest(w http.ResponseWriter, r *http.Request) {
+func getLatest(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	latest_struct := struct {
 		Latest int `json:"latest"`
@@ -134,7 +124,7 @@ func get_latest(w http.ResponseWriter, r *http.Request) {
 
 func register(w http.ResponseWriter, r *http.Request) {
 	log.Println("REGISTER:")
-	update_latest(r)
+	updateLatest(r)
 
 	request_data := json.NewDecoder(r.Body)
 
@@ -157,7 +147,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if r_data.Pwd == "" {
 			errorMsg = "You have to enter a password"
 			status = 400
-		} else if get_user_id(r_data.Username) != -1 {
+		} else if ctrl.GetUserID(r_data.Username, db) != -1 {
 			errorMsg = "The username is already taken"
 			status = 400
 		} else {
@@ -179,9 +169,9 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func messages(w http.ResponseWriter, r *http.Request) {
-	update_latest(r)
+	updateLatest(r)
 
-	not_from_sim_response := not_req_from_simulator(w, r)
+	not_from_sim_response := notReqFromSimulator(w, r)
 
 	if not_from_sim_response != nil {
 		w.WriteHeader(403)
@@ -201,15 +191,15 @@ func messages(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user WHERE message.flagged = 0 AND message.author_id = user.user_id ORDER BY message.pub_date DESC LIMIT ?"
-		rows, err := DB.Query(query, no_msgs)
+		rows, err := db.Query(query, no_msgs)
 		messages := ctrl.HandleQuery(rows, err)
 
 		var filtered_msgs []ctrl.Message
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				ID:       m["message_id"].(uint32),
-				AuthorID: m["author_id"].(int32),
+				ID:       m["message_id"].(uint),
+				AuthorID: m["author_id"].(int),
 				Text:     m["text"].(string),
 				Date:     m["pub_date"].(int64),
 				Flagged:  m["flagged"].(uint8),
@@ -227,11 +217,11 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func messages_per_user(w http.ResponseWriter, r *http.Request) {
+func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 	log.Println("TWEET:")
-	update_latest(r)
+	updateLatest(r)
 
-	not_from_sim_response := not_req_from_simulator(w, r)
+	not_from_sim_response := notReqFromSimulator(w, r)
 
 	if not_from_sim_response != nil {
 		w.WriteHeader(403)
@@ -249,15 +239,15 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 		query := "SELECT message.*, user.* FROM message, user  WHERE message.flagged = 0 AND user.user_id = message.author_id AND user.user_id = ? ORDER BY message.pub_date DESC LIMIT ?"
-		rows, err := DB.Query(query, no_msgs)
+		rows, err := db.Query(query, no_msgs)
 		messages := ctrl.HandleQuery(rows, err)
 
 		var filtered_msgs []ctrl.Message
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				ID:       m["message_id"].(uint32),
-				AuthorID: m["author_id"].(int32),
+				ID:       m["message_id"].(uint),
+				AuthorID: m["author_id"].(int),
 				Text:     m["text"].(string),
 				Date:     m["pub_date"].(int64),
 				Flagged:  m["flagged"].(uint8),
@@ -280,13 +270,13 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&r_data)
 
 		rData := ctrl.Message{
-			AuthorID: get_user_id(username),
+			AuthorID: ctrl.GetUserID(username, db),
 			Text:     r_data.Content,
 			Date:     time.Now().Unix(),
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-		if res, err := DB.Exec(query, rData.AuthorID, rData.Text, rData.Date); err != nil {
+		if res, err := db.Exec(query, rData.AuthorID, rData.Text, rData.Date); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -303,17 +293,17 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 func follow(w http.ResponseWriter, r *http.Request) {
 	log.Println("FOLLOW/UNFOLLOW:")
 	username := mux.Vars(r)["username"]
-	update_latest(r)
+	updateLatest(r)
 	decoder := json.NewDecoder(r.Body)
 
-	not_from_sim_response := not_req_from_simulator(w, r)
+	not_from_sim_response := notReqFromSimulator(w, r)
 	if not_from_sim_response != nil {
 		w.WriteHeader(403)
 		w.Write(not_from_sim_response)
 		return
 	}
 
-	user_id := get_user_id(username)
+	user_id := ctrl.GetUserID(username, db)
 	if user_id == -1 {
 		status := 404
 		resp, _ := json.Marshal(Response{Status: status})
@@ -330,7 +320,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	decoder.Decode(&req)
 
 	if req.Follow != "" && r.Method == "POST" {
-		follows_user_id := get_user_id(req.Follow)
+		follows_user_id := ctrl.GetUserID(req.Follow, db)
 		if follows_user_id == -1 {
 			status := 404
 			resp, _ := json.Marshal(Response{Status: status})
@@ -340,7 +330,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "INSERT INTO follower (who_id, whom_id) VALUES (?, ?)"
-		if res, err := DB.Exec(query, user_id, follows_user_id); err != nil {
+		if res, err := db.Exec(query, user_id, follows_user_id); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -355,7 +345,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		return
 	} else if req.Unfollow != "" && r.Method == "POST" {
 		unfollows_username := req.Unfollow
-		unfollows_user_id := get_user_id(unfollows_username)
+		unfollows_user_id := ctrl.GetUserID(unfollows_username, db)
 
 		if unfollows_user_id == -1 {
 			resp, _ := json.Marshal(Response{Status: 404})
@@ -365,7 +355,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		}
 
 		query := "DELETE FROM follower WHERE who_id=? and WHOM_ID=?"
-		if res, err := DB.Exec(query, user_id, unfollows_user_id); err != nil {
+		if res, err := db.Exec(query, user_id, unfollows_user_id); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
@@ -388,7 +378,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
 		var followers []map[string]interface{}
-		if rows, err := DB.Query(query, user_id, val); err != nil {
+		if rows, err := db.Query(query, user_id, val); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)

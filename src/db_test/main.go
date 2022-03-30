@@ -12,21 +12,21 @@ import (
 // gorm.Model is a built-in struct, not used here
 
 type User struct {
-	ID       uint32 `json:"id"` // Fields named 'ID' are default PK and autoincrement
+	ID       uint   `json:"id"` // Fields named 'ID' are default PK and autoincrement
 	Username string `json:"username" gorm:"not null"`
 	Email    string `json:"email" gorm:"not null"`
 	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
 type Follower struct {
-	FollowerID uint32 `json:"follower_id" gorm:"primaryKey"`                     // Explicitly declare PK
-	FollowedID uint32 `json:"followed_id" gorm:"primaryKey"`                     // Composite PK
-	User       User   `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"` // FK relationship
+	FollowerID uint `json:"follower_id" gorm:"primaryKey"`                     // Explicitly declare PK
+	FollowedID uint `json:"followed_id" gorm:"primaryKey"`                     // Composite PK
+	User       User `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"` // FK relationship
 }
 
 type Message struct {
-	ID       uint32 `json:"message_id"`
-	AuthorID int32  `json:"author_id" gorm:"not null"`
+	ID       uint   `json:"message_id"`
+	AuthorID int    `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
 	Date     int64  `json:"pub_date"`
 	Flagged  uint8  `json:"flagged"`

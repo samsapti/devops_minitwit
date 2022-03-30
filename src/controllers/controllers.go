@@ -11,21 +11,21 @@ import (
 )
 
 type User struct {
-	ID       uint32 `json:"id"`
+	ID       uint   `json:"id"`
 	Username string `json:"username" gorm:"not null"`
 	Email    string `json:"email" gorm:"not null"`
 	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
 type Follower struct {
-	FollowerID uint32 `json:"follower_id" gorm:"primaryKey"`
-	FollowedID uint32 `json:"followed_id" gorm:"primaryKey"`
-	User       User   `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"`
+	FollowerID uint `json:"follower_id" gorm:"primaryKey"`
+	FollowedID uint `json:"followed_id" gorm:"primaryKey"`
+	User       User `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"`
 }
 
 type Message struct {
-	ID       uint32 `json:"message_id"`
-	AuthorID int32  `json:"author_id" gorm:"not null"`
+	ID       uint   `json:"message_id"`
+	AuthorID int    `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
 	Date     int64  `json:"pub_date"`
 	Flagged  uint8  `json:"flagged"`
@@ -42,6 +42,17 @@ func CheckError(err error) bool {
 	}
 
 	return err != nil
+}
+
+func GetUserID(username string, db *sql.DB) int {
+	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
+	rv := HandleQuery(rows, err)
+
+	if rv != nil || len(rv) != 0 {
+		return rv[0]["user_id"].(int)
+	}
+
+	return -1
 }
 
 func InitDB(schemaDest, dbDest string) {
