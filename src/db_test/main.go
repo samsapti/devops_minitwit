@@ -28,7 +28,7 @@ type Message struct {
 	ID       uint32 `json:"message_id"`
 	AuthorID int32  `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
-	Date     uint64 `json:"pub_date"`
+	Date     int64  `json:"pub_date"`
 	Flagged  uint8  `json:"flagged"`
 }
 

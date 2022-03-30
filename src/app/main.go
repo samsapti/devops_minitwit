@@ -135,11 +135,11 @@ func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, 
 	user := ctrl.User{}
 
 	if session.Values["user_id"] == nil || session.Values["username"] == nil {
-		user.Id = -1
+		user.ID = 0
 		user.Username = ""
 		clearUserSessionData(w, r)
 	} else {
-		user.Id = session.Values["user_id"].(int64)
+		user.ID = session.Values["user_id"].(uint32)
 		user.Username = session.Values["username"].(string)
 	}
 
@@ -156,7 +156,7 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool) []map[stri
 		log.Printf("Showing %d results", len(res))
 		return res
 	} else {
-		rows, err := DB.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.Id, user.Id, perPage)
+		rows, err := DB.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.ID, user.ID, perPage)
 		res := ctrl.HandleQuery(rows, err)
 		log.Printf("Showing %d results", len(res))
 		return res
@@ -249,8 +249,8 @@ func user_timeline(w http.ResponseWriter, r *http.Request) {
 	_, user := getUserSession(w, r)
 	followed := false
 
-	if user.Id != -1 {
-		rows, err := DB.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.Id, profile_user[0]["user_id"].(int64))
+	if user.ID != 0 {
+		rows, err := DB.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.ID, profile_user[0]["user_id"].(int64))
 		res := ctrl.HandleQuery(rows, err)
 		followed = res != nil || len(res) != 0
 	}
@@ -281,7 +281,7 @@ func follow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.Id, whom_id)
+	_, err := DB.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.ID, whom_id)
 	ctrl.CheckError(err)
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
@@ -302,7 +302,7 @@ func unfollow_user(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := DB.Exec("delete from follower where who_id=? and whom_id=?", user.Id, whom_id)
+	_, err := DB.Exec("delete from follower where who_id=? and whom_id=?", user.ID, whom_id)
 	ctrl.CheckError(err)
 	session.AddFlash("You are no longer following %s", vars["username"])
 	session.Save(r, w)
@@ -314,12 +314,12 @@ func add_message(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	session, user := getUserSession(w, r)
 
-	if user.Id == -1 {
+	if user.ID == 0 {
 		w.WriteHeader(401)
 		return
 	}
 	if r.FormValue("text") != "" {
-		_, err := DB.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.Id, r.FormValue("text"), int(time.Now().Unix()))
+		_, err := DB.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.ID, r.FormValue("text"), int(time.Now().Unix()))
 		ctrl.CheckError(err)
 		session.AddFlash("Your message was recorded")
 		session.Save(r, w)
@@ -331,9 +331,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 
 	session, user := getUserSession(w, r)
-	user_id := user.Id
+	user_id := user.ID
 	username := user.Username
-	if user_id != -1 {
+	if user_id != 0 {
 		fmt.Println("user_id is", user_id)   // delete later
 		fmt.Println("username is", username) // delete later
 		http.Redirect(w, r, "/", http.StatusSeeOther)

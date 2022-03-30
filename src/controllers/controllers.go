@@ -11,23 +11,24 @@ import (
 )
 
 type User struct {
-	Id       int64  `json:"id"`
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	Pw_hash  string `json:"pw_hash"`
+	ID       uint32 `json:"id"`
+	Username string `json:"username" gorm:"not null"`
+	Email    string `json:"email" gorm:"not null"`
+	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
 type Follower struct {
-	Follower_id int64 `json:"follower_id"`
-	Followed_id int64 `json:"followed_id"`
+	FollowerID uint32 `json:"follower_id" gorm:"primaryKey"`
+	FollowedID uint32 `json:"followed_id" gorm:"primaryKey"`
+	User       User   `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"`
 }
 
 type Message struct {
-	Message_id int64  `json:"message_id"`
-	Author_id  int64  `json:"author_id"`
-	Text       string `json:"text"`
-	Pub_date   int64  `json:"pub_date"`
-	Flagged    int64  `json:"flagged"`
+	ID       uint32 `json:"message_id"`
+	AuthorID int32  `json:"author_id" gorm:"not null"`
+	Text     string `json:"text" gorm:"not null"`
+	Date     int64  `json:"pub_date"`
+	Flagged  uint8  `json:"flagged"`
 }
 
 const (

@@ -98,12 +98,12 @@ func not_req_from_simulator(w http.ResponseWriter, r *http.Request) []byte {
 	return nil
 }
 
-func get_user_id(username string) int64 {
+func get_user_id(username string) int32 {
 	rows, err := DB.Query("SELECT user.user_id FROM user WHERE username = ?", username)
 	rv := ctrl.HandleQuery(rows, err)
 
 	if rv != nil || len(rv) != 0 {
-		return rv[0]["user_id"].(int64)
+		return rv[0]["user_id"].(int32)
 	}
 
 	return -1
@@ -208,11 +208,11 @@ func messages(w http.ResponseWriter, r *http.Request) {
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				Message_id: m["message_id"].(int64),
-				Author_id:  m["author_id"].(int64),
-				Text:       m["text"].(string),
-				Pub_date:   m["pub_date"].(int64),
-				Flagged:    m["flagged"].(int64),
+				ID:       m["message_id"].(uint32),
+				AuthorID: m["author_id"].(int32),
+				Text:     m["text"].(string),
+				Date:     m["pub_date"].(int64),
+				Flagged:  m["flagged"].(uint8),
 			}
 
 			filtered_msgs = append(filtered_msgs, filtered_msg)
@@ -256,11 +256,11 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 
 		for _, m := range messages {
 			filtered_msg := ctrl.Message{
-				Message_id: m["message_id"].(int64),
-				Author_id:  m["author_id"].(int64),
-				Text:       m["text"].(string),
-				Pub_date:   m["pub_date"].(int64),
-				Flagged:    m["flagged"].(int64),
+				ID:       m["message_id"].(uint32),
+				AuthorID: m["author_id"].(int32),
+				Text:     m["text"].(string),
+				Date:     m["pub_date"].(int64),
+				Flagged:  m["flagged"].(uint8),
 			}
 
 			filtered_msgs = append(filtered_msgs, filtered_msg)
@@ -280,13 +280,13 @@ func messages_per_user(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&r_data)
 
 		rData := ctrl.Message{
-			Author_id: get_user_id(username),
-			Text:      r_data.Content,
-			Pub_date:  time.Now().Unix(),
+			AuthorID: get_user_id(username),
+			Text:     r_data.Content,
+			Date:     time.Now().Unix(),
 		}
 
 		query := "INSERT INTO message (author_id, text, pub_date, flagged) VALUES (?, ?, ?, 0)"
-		if res, err := DB.Exec(query, rData.Author_id, rData.Text, rData.Pub_date); err != nil {
+		if res, err := DB.Exec(query, rData.AuthorID, rData.Text, rData.Date); err != nil {
 			resp, _ := json.Marshal(Response{Status: 403})
 			w.WriteHeader(403)
 			w.Write(resp)
