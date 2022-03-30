@@ -12,23 +12,24 @@ import (
 // gorm.Model is a built-in struct, not used here
 
 type User struct {
-	ID       uint   `json:"id"` // Fields named 'ID' are default PK
-	Username string `json:"username"`
-	Email    string `json:"email"`
-	PwHash   string `json:"pw_hash"`
+	ID       uint32 `json:"id"` // Fields named 'ID' are default PK and autoincrement
+	Username string `json:"username" gorm:"not null"`
+	Email    string `json:"email" gorm:"not null"`
+	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
-type Follow struct {
-	WhoID  uint `json:"follower_id" gorm:"primary_key"` // Explicitly declare PK
-	WhomID uint `json:"followed_id" gorm:"primary_key"` // Explicitly declare PK
+type Follower struct {
+	FollowerID uint32 `json:"follower_id" gorm:"primaryKey"`                     // Explicitly declare PK
+	FollowedID uint32 `json:"followed_id" gorm:"primaryKey"`                     // Composite PK
+	User       User   `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"` // FK relationship
 }
 
 type Message struct {
-	ID      uint   `json:"message_id"` // Fields named 'ID' are default PK
-	UserID  int64  `json:"author_id"`
-	Text    string `json:"text"`
-	Date    int64  `json:"pub_date"`
-	Flagged int64  `json:"flagged"`
+	ID       uint32 `json:"message_id"`
+	AuthorID int32  `json:"author_id" gorm:"not null"`
+	Text     string `json:"text" gorm:"not null"`
+	Date     uint64 `json:"pub_date"`
+	Flagged  uint8  `json:"flagged"`
 }
 
 func main() {
@@ -39,10 +40,8 @@ func main() {
 		panic("ERROR: failed to connect database")
 	}
 
-	db.Debug()
-
-	// Migrate schema
-	db.AutoMigrate(&User{}, &Follow{}, &Message{})
+	// Migrate schema with debugging info
+	db.Debug().AutoMigrate(&User{}, &Follower{}, &Message{})
 
 	/*
 		USERS TEST
@@ -78,26 +77,25 @@ func main() {
 	*/
 
 	// Make sals follow jkof
-	db.Create(&Follow{WhoID: sals.ID, WhomID: jkof.ID})
+	db.Create(&Follower{FollowerID: sals.ID, FollowedID: jkof.ID})
 
 	// Find the created record
-	var salsFollowsJkof Follow
-	db.First(&salsFollowsJkof, "who_id = ? AND whom_id = ?", sals.ID, jkof.ID) // inline where clause
+	var salsFollowsJkof Follower
+	db.First(&salsFollowsJkof, "follower_id = ? AND followed_id = ?", sals.ID, jkof.ID) // inline where clause
 
-	if salsFollowsJkof.WhoID == 0 {
+	if salsFollowsJkof.FollowerID == 0 {
 		fmt.Printf("%s does not follow %s\n", sals.Username, jkof.Username)
 	} else {
 		fmt.Printf("%s follows %s\n", sals.Username, jkof.Username) // <-- evaluetes to false
 	}
 
 	// Deletion
-	db.Delete(&salsFollowsJkof)                                          // Delete the record like this
-	db.Delete(&Follow{}, "who_id = ? AND whom_id = ?", sals.ID, jkof.ID) // Or this
-	db.Delete(&Follow{WhoID: sals.ID, WhomID: jkof.ID})                  // Or this
-	salsFollowsJkof = Follow{}                                           // Reset salsFollowsJkof
-	db.Where(&Follow{WhoID: sals.ID}).First(&salsFollowsJkof)            // Retrieve record, this time with a struct
+	db.Delete(&salsFollowsJkof)                                                           // Delete the record like this
+	db.Where("follower_id = ? AND followed_id = ?", sals.ID, jkof.ID).Delete(&Follower{}) // Or this
+	salsFollowsJkof = Follower{}                                                          // Reset salsFollowsJkof
+	db.Where(&Follower{FollowerID: sals.ID}).First(&salsFollowsJkof)                      // Retrieve record, this time with a struct
 
-	if salsFollowsJkof.WhoID == 0 {
+	if salsFollowsJkof.FollowerID == 0 {
 		fmt.Printf("%s does not follow %s anymore\n", sals.Username, jkof.Username) // <-- evaluates to true
 		fmt.Println()
 	} else {
