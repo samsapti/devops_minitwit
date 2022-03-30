@@ -30,7 +30,7 @@ const (
 )
 
 func main() {
-	ctrl.Init_db(ctrl.InitDBSchema, ctrl.DBPath)
+	ctrl.InitDB(ctrl.InitDBSchema, ctrl.DBPath)
 
 	r := mux.NewRouter()
 	r.Use()
@@ -67,7 +67,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	DB = ctrl.Connect_db(ctrl.DBPath)
+	DB = ctrl.ConnectDB(ctrl.DBPath)
 	log.Printf("Starting API on port %d\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -162,8 +162,8 @@ func register(w http.ResponseWriter, r *http.Request) {
 			status = 400
 		} else {
 			status = 204
-			db := ctrl.Connect_db(ctrl.DBPath)
-			hashed_pw, err := ctrl.GenPasswdHash(r_data.Pwd)
+			db := ctrl.ConnectDB(ctrl.DBPath)
+			hashed_pw, err := ctrl.HashPw(r_data.Pwd)
 			ctrl.CheckError(err)
 
 			query := "INSERT INTO user (username, email, pw_hash) VALUES (?, ?, ?)"

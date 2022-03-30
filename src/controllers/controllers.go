@@ -44,14 +44,14 @@ func CheckError(err error) bool {
 	return err != nil
 }
 
-func Init_db(schemaDest, dbDest string) {
+func InitDB(schemaDest, dbDest string) {
 	query, err := ioutil.ReadFile(schemaDest)
 
 	if CheckError(err) {
 		panic(err)
 	}
 
-	db := Connect_db(dbDest)
+	db := ConnectDB(dbDest)
 
 	if _, err := db.Exec(string(query)); err != nil {
 		panic(err)
@@ -60,7 +60,7 @@ func Init_db(schemaDest, dbDest string) {
 	log.Println("Initialised database")
 }
 
-func Connect_db(dbDest string) *sql.DB {
+func ConnectDB(dbDest string) *sql.DB {
 	db, err := sql.Open("sqlite3", dbDest)
 	CheckError(err)
 	return db
@@ -74,19 +74,18 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 	}
 
 	cols, err := rows.Columns()
+
 	if CheckError(err) {
 		return nil
 	}
 
 	values := make([]interface{}, len(cols))
+
 	for i := range cols {
 		values[i] = new(interface{})
 	}
 
-	//var dicts []map[string]interface{}
 	dicts := make([]map[string]interface{}, 0)
-	//dictIdx := 0
-
 	rowsCount := 0
 
 	for rows.Next() {
@@ -104,8 +103,6 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 		}
 
 		dicts = append(dicts, m)
-		//dicts[dictIdx] = m
-		//dictIdx++
 	}
 
 	log.Printf("	Columns %v returned dictionaries: %v", cols, dicts)
@@ -115,7 +112,7 @@ func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
 }
 
 // The function below has been borrowed from: https://gowebexamples.com/password-hashing/
-func GenPasswdHash(password string) (string, error) {
+func HashPw(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
 }

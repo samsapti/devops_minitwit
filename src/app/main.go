@@ -49,7 +49,7 @@ const (
 )
 
 func main() {
-	ctrl.Init_db(ctrl.InitDBSchema, ctrl.DBPath)
+	ctrl.InitDB(ctrl.InitDBSchema, ctrl.DBPath)
 
 	r := mux.NewRouter()
 
@@ -92,7 +92,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	DB = ctrl.Connect_db(ctrl.DBPath)
+	DB = ctrl.ConnectDB(ctrl.DBPath)
 	log.Printf("Starting app on port %d\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -396,7 +396,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else if get_user_id(r.FormValue("username")) != -1 {
 			error = "The username is already taken"
 		} else {
-			hashed_pw, err := ctrl.GenPasswdHash(r.FormValue("password"))
+			hashed_pw, err := ctrl.HashPw(r.FormValue("password"))
 			ctrl.CheckError(err)
 			_, err = DB.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
 			ctrl.CheckError(err)
