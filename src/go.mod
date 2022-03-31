@@ -5,7 +5,7 @@ go 1.18
 require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/sessions v1.2.1
-	github.com/mattn/go-sqlite3 v1.14.12
+	github.com/mattn/go-sqlite3 v1.14.12 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible
 	golang.org/x/crypto v0.0.0-20220321153916-2c7772ba3064
 	gorm.io/gorm v1.23.3

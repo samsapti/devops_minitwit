@@ -5,36 +5,41 @@ import (
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
-
-	ctrl "minitwit/controllers"
+	"gorm.io/gorm/schema"
 )
 
 // gorm.Model is a built-in struct, not used here
 
 type User struct {
-	ID       uint   `json:"id"` // Fields named 'ID' are default PK and autoincrement
+	ID       uint   `json:"id" gorm:"column:user_id"` // Fields named 'ID' are default PK and autoincrement
 	Username string `json:"username" gorm:"not null"`
 	Email    string `json:"email" gorm:"not null"`
 	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
 type Follower struct {
-	FollowerID uint `json:"follower_id" gorm:"primaryKey"`                     // Explicitly declare PK
-	FollowedID uint `json:"followed_id" gorm:"primaryKey"`                     // Composite PK
-	User       User `gorm:"foreignKey:FollowerID,FollowedID;references:ID,ID"` // FK relationship
+	FollowerID uint `json:"follower_id" gorm:"primaryKey;column:who_id"` // Explicitly declare PK
+	FollowsID  uint `json:"follows_id" gorm:"primaryKey;column:whom_id"` // Composite PK
+	Follower   User `gorm:"foreignKey:FollowerID"`                       // FK relationship
+	Follows    User `gorm:"foreignKey:FollowsID"`
 }
 
 type Message struct {
-	ID       uint   `json:"message_id"`
-	AuthorID int    `json:"author_id" gorm:"not null"`
+	ID       uint   `json:"message_id" gorm:"column:message_id"`
+	AuthorID uint   `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
-	Date     int64  `json:"pub_date"`
+	Date     int64  `json:"pub_date" gorm:"column:pub_date"`
 	Flagged  uint8  `json:"flagged"`
+	Author   User   `gorm:"foreignKey:AuthorID"`
 }
 
 func main() {
 	// Create temporary database in memory
-	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{})
+	db, err := gorm.Open(sqlite.Open("/tmp/minitwit.db" /*"file::memory:?cache=shared"*/), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true,
+		},
+	})
 
 	if err != nil {
 		panic("ERROR: failed to connect database")
@@ -47,8 +52,8 @@ func main() {
 		USERS TEST
 	*/
 
-	pwSals, _ := ctrl.HashPw("sals_secure_passwd")
-	pwJkof, _ := ctrl.HashPw("jkof_secure_passwd")
+	pwSals := "sals_secure_passwd"
+	pwJkof := "jkof_secure_passwd"
 
 	db.Create(&User{
 		Username: "sals",
@@ -77,7 +82,7 @@ func main() {
 	*/
 
 	// Make sals follow jkof
-	db.Create(&Follower{FollowerID: sals.ID, FollowedID: jkof.ID})
+	db.Create(&Follower{FollowerID: sals.ID, FollowsID: jkof.ID})
 
 	// Find the created record
 	var salsFollowsJkof Follower

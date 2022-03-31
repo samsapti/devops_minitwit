@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -31,7 +32,7 @@ const (
 )
 
 func main() {
-	db = ctrl.ConnectDB(ctrl.DBPath)
+	db = ctrl.ConnectDB()
 	r := mux.NewRouter()
 
 	// Endpoints
@@ -153,15 +154,13 @@ func register(w http.ResponseWriter, r *http.Request) {
 				PwHash:   pw,
 			})
 
+			log.Println("Created" + reqData.Username)
 			ctrl.CheckError(err)
 		}
 	}
 
 	log.Println(errorMsg)
-
-	response, _ := json.Marshal(Response{Status: status})
 	w.WriteHeader(status)
-	w.Write(response)
 }
 
 func messages(w http.ResponseWriter, r *http.Request) {
@@ -186,9 +185,20 @@ func messages(w http.ResponseWriter, r *http.Request) {
 
 	if r.Method == "GET" {
 		var messages []ctrl.Message
-		db.Limit(noMsgs).Order("messages.date desc").Joins("users").Where("flagged = ?", 0).Find(&messages)
 
-		log.Println(len(messages))
+		query := db.Limit(noMsgs).
+			Joins("JOIN user ON message.author_id = user.user_id").
+			Order("message.pub_date desc").
+			Where("flagged = ?", 0).
+			Find(&messages)
+
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			response, _ := json.Marshal(&Response{Status: 500})
+			w.WriteHeader(500)
+			w.Write(response)
+			return
+		}
+
 		response, _ := json.Marshal(messages)
 		w.WriteHeader(200)
 		w.Write(response)
@@ -208,27 +218,33 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 
 	def := 100
 	vars := mux.Vars(r)
-	val := def
+	noMsgs := def
 
 	if len(vars) != 0 {
-		val, _ = strconv.Atoi(vars["no"])
+		noMsgs, _ = strconv.Atoi(vars["no"])
 	}
 
-	noMsgs := val
 	userID := ctrl.GetUserID(vars["username"], db)
 
 	if userID == 0 {
-		response, _ := json.Marshal(Response{Status: 404})
 		w.WriteHeader(404)
-		w.Write(response)
 		return
 	}
 
 	if r.Method == "GET" {
 		var messages []ctrl.Message
-		db.Limit(noMsgs).Order("messages.date desc").Joins("users").Where(&ctrl.Message{AuthorID: userID, Flagged: 0}).Find(&messages)
+
+		db.Limit(noMsgs).
+			Joins("JOIN user ON message.author_id = user.user_id").
+			Order("message.pub_date desc").
+			Where(&ctrl.Message{AuthorID: int(userID), Flagged: 0}).
+			Find(&messages)
 
 		log.Println(len(messages))
+
+		response, _ := json.Marshal(messages)
+		w.WriteHeader(200)
+		w.Write(response)
 	} else if r.Method == "POST" {
 		log.Println("TWEET:")
 
@@ -239,7 +255,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&reqData)
 
 		db.Create(&ctrl.Message{
-			AuthorID: userID,
+			AuthorID: int(userID),
 			Text:     reqData.Content,
 			Date:     time.Now().Unix(),
 			Flagged:  0,
@@ -248,9 +264,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(405) // Method Not Allowed
 	}
 
-	response, _ := json.Marshal(Response{Status: 204})
 	w.WriteHeader(204)
-	w.Write(response)
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
@@ -269,10 +283,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	userID := ctrl.GetUserID(mux.Vars(r)["username"], db)
 
 	if userID == 0 {
-		status := 404
-		response, _ := json.Marshal(Response{Status: status})
-		w.WriteHeader(status)
-		w.Write(response)
+		w.WriteHeader(404)
 		return
 	}
 
@@ -287,62 +298,65 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		followID := ctrl.GetUserID(reqData.Follow, db)
 
 		if followID == 0 {
-			status := 404
-			resp, _ := json.Marshal(Response{Status: status})
-			w.WriteHeader(status)
-			w.Write(resp)
-			return
+			status = 404
+		} else {
+			query := db.Debug().FirstOrCreate(&ctrl.Follower{}, &ctrl.Follower{
+				FollowerID: userID,
+				FollowsID:  followID,
+			})
+
+			if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+				status = 500
+			} else {
+				status = 204
+			}
 		}
 
-		db.Create(&ctrl.Follower{FollowerID: userID, FollowedID: followID})
-		status = 204
+		w.WriteHeader(status)
 	} else if len(reqData.Unfollow) != 0 && r.Method == "POST" {
 		unfollowID := ctrl.GetUserID(reqData.Unfollow, db)
 
 		if unfollowID == 0 {
-			resp, _ := json.Marshal(Response{Status: 404})
 			w.WriteHeader(404)
-			w.Write(resp)
 			return
 		}
 
-		db.Delete(&ctrl.Follower{FollowerID: userID, FollowedID: unfollowID})
-		status = 204
-	} else if r.Method == "GET" {
-		def := 100
-		vars := mux.Vars(r)
-		val := def
+		query := db.Delete(&ctrl.Follower{
+			FollowerID: userID,
+			FollowsID:  unfollowID,
+		})
 
-		if len(vars) != 0 {
-			val, _ = strconv.Atoi(vars["no"])
-		}
-
-		query := "SELECT user.username FROM user INNER JOIN follower ON follower.whom_id=user.user_id WHERE follower.who_id=? LIMIT ?"
-		var followers []map[string]interface{}
-		if rows, err := db.Query(query, userID, val); err != nil {
-			resp, _ := json.Marshal(Response{Status: 403})
-			w.WriteHeader(403)
-			w.Write(resp)
-			return
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			status = 500
 		} else {
-			followers = ctrl.HandleQuery(rows, err)
+			status = 204
 		}
 
-		var follower_names []interface{}
-		for f := range followers {
-			follower_names = append(follower_names, f)
+		w.WriteHeader(status)
+	} else if r.Method == "GET" {
+		var followers []ctrl.User
+		var followerNames []interface{}
+
+		query := db.Debug().Select("user.username").Joins("INNER JOIN follower ON user.user_id = follower.who_id").
+			Find(&followers, "follower.whom_id = ?", userID)
+
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			status = 500
+		} else {
+			status = 200
+
+			for _, f := range followers {
+				log.Println(f.Username)
+				log.Println(f.ID)
+				followerNames = append(followerNames, f.Username)
+			}
 		}
 
-		followers_response := struct {
-			Follows []interface{} `json:"follows"`
-		}{
-			Follows: follower_names,
-		}
+		response, _ := json.Marshal(struct {
+			Followers []interface{} `json:"followers"`
+		}{Followers: followerNames})
 
-		status = 204
+		w.WriteHeader(status)
+		w.Write(response)
 	}
-
-	response, _ := json.Marshal(Response{Status: status})
-	w.WriteHeader(status)
-	w.Write(response)
 }
