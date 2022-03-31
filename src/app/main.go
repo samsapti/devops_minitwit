@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"fmt"
 	"strconv"
 
@@ -17,6 +16,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"gorm.io/gorm"
 
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/crypto/bcrypt"
@@ -39,7 +39,7 @@ type TimelineData struct {
 }
 
 var (
-	db    *sql.DB
+	db    *gorm.DB
 	store = sessions.NewCookieStore([]byte(os.Getenv("SESSION_KEY")))
 )
 
@@ -49,7 +49,7 @@ const (
 )
 
 func main() {
-	ctrl.InitDB(ctrl.InitDBSchema, ctrl.DBPath)
+	db = ctrl.ConnectDB(ctrl.DBPath)
 	r := mux.NewRouter()
 
 	// Endpoints

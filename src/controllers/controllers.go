@@ -2,9 +2,12 @@ package controllers
 
 import (
 	"database/sql"
-	"io/ioutil"
+	"errors"
 	"log"
 	"reflect"
+
+	"gorm.io/driver/sqlite"
+	"gorm.io/gorm"
 
 	_ "github.com/mattn/go-sqlite3"
 	"golang.org/x/crypto/bcrypt"
@@ -25,10 +28,11 @@ type Follower struct {
 
 type Message struct {
 	ID       uint   `json:"message_id"`
-	AuthorID int    `json:"author_id" gorm:"not null"`
+	AuthorID uint   `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
 	Date     int64  `json:"pub_date"`
 	Flagged  uint8  `json:"flagged"`
+	User     User   `gorm:"foreignKey:AuthorID;references:ID"`
 }
 
 const (
@@ -44,37 +48,28 @@ func CheckError(err error) bool {
 	return err != nil
 }
 
-func GetUserID(username string, db *sql.DB) int {
-	rows, err := db.Query("SELECT user.user_id FROM user WHERE username = ?", username)
-	rv := HandleQuery(rows, err)
+func ConnectDB(dbPath string) *gorm.DB {
+	db, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
 
-	if rv != nil || len(rv) != 0 {
-		return rv[0]["user_id"].(int)
+	if err != nil {
+		panic("ERROR: failed to connect database")
 	}
 
-	return -1
-}
+	db.AutoMigrate(&Follower{}, &Message{}, &User{})
+	log.Println("Database connected")
 
-func InitDB(schemaDest, dbDest string) {
-	query, err := ioutil.ReadFile(schemaDest)
-
-	if CheckError(err) {
-		panic(err)
-	}
-
-	db := ConnectDB(dbDest)
-
-	if _, err := db.Exec(string(query)); err != nil {
-		panic(err)
-	}
-	db.Close()
-	log.Println("Initialised database")
-}
-
-func ConnectDB(dbDest string) *sql.DB {
-	db, err := sql.Open("sqlite3", dbDest)
-	CheckError(err)
 	return db
+}
+
+func GetUserID(username string, db *gorm.DB) uint {
+	var user User
+	result := db.First(&user, "username = ?", username)
+
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return 0
+	}
+
+	return user.ID
 }
 
 func HandleQuery(rows *sql.Rows, err error) []map[string]interface{} {
