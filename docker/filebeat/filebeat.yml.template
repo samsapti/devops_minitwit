@@ -1,3 +1,5 @@
+# vi: ft=yaml
+
 filebeat.inputs:
 - type: container
   paths: 
