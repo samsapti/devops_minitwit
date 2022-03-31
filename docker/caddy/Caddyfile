@@ -1,8 +1,10 @@
 {$DOMAINNAME} {
     rewrite /api /api/
     rewrite /grafana /grafana/
+    rewrite /kibana /kibana/
 
     reverse_proxy localhost:8080
     reverse_proxy /api/* localhost:8000
     reverse_proxy /grafana/* localhost:3000
+    reverse_proxy /kibana/* localhost:5601
 }

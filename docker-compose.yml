@@ -7,9 +7,11 @@ volumes:
   prometheus_data:
 
 services:
+  # Reverse proxy
+
   caddy:
     image: caddy:2-alpine
-    container_name: minitwit_caddy
+    container_name: "minitwit_caddy"
     restart: unless-stopped
     environment:
       DOMAINNAME: ${DOMAINNAME:-localhost:80}
@@ -24,9 +26,11 @@ services:
       - NET_BIND_SERVICE
       - DAC_OVERRIDE
 
+  # MiniTwit
+
   api:
     image: salsitu/minitwitapi:latest
-    container_name: minitwit_api
+    container_name: "minitwit_api"
     restart: unless-stopped
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
@@ -38,7 +42,7 @@ services:
 
   app:
     image: salsitu/minitwitapp:latest
-    container_name: minitwit_app
+    container_name: "minitwit_app"
     restart: unless-stopped
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
@@ -48,9 +52,11 @@ services:
       - grafana
       - prometheus
 
+  # Monitoring
+
   grafana:
     image: grafana/grafana-oss:latest
-    container_name: minitwit_grafana
+    container_name: "minitwit_grafana"
     restart: unless-stopped
     environment:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/home_dashboard.json"
@@ -68,7 +74,7 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: minitwit_prometheus
+    container_name: "minitwit_prometheus"
     restart: unless-stopped
     user: root
     command: --config.file=/etc/prometheus/prometheus.yml
@@ -77,3 +83,37 @@ services:
       - prometheus_data:/prometheus/data
     ports:
       - "127.0.0.1:9090:9090"
+
+  # Logging
+
+  elasticsearch:
+    image: "docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2"
+    environment:
+      ES_JAVA_OPTS: "-Xms1g -Xmx1g"
+      discovery.type: "single-node"
+    volumes:
+      - elk_elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "127.0.0.1:9200:9200"
+    depends_on:
+      - filebeat
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat-oss:7.10.2
+    container_name: "minitwit_filebeat"
+    user: root
+    volumes:
+      - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  kibana:
+    image: "docker.elastic.co/kibana/kibana-oss:7.10.2"
+    container_name: "kibana"
+    environment:
+        elasticsearch.hosts: '["http://elasticsearch:9200"]'
+        telemetry.enabled: "false"
+    ports:
+      - 127.0.0.1:5601:5601
+    depends_on:
+      - elasticsearch
