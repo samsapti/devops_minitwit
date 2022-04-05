@@ -1,10 +1,11 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
-	"crypto/md5"
+	"crypto/sha512"
 	"encoding/hex"
 	"html/template"
 	"io"
@@ -16,10 +17,10 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
-	"gorm.io/gorm"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 
 	ctrl "minitwit/controllers"
 	mntr "minitwit/monitoring"
@@ -34,7 +35,7 @@ type TimelineData struct {
 	RequestUrl   string
 	Followed     bool
 	Profile_User ctrl.User
-	Messages     []map[string]interface{}
+	Messages     []ctrl.Message
 	SessionData  SessionData
 }
 
@@ -49,7 +50,7 @@ const (
 )
 
 func main() {
-	db = ctrl.ConnectDB(ctrl.DBPath)
+	db = ctrl.ConnectDB()
 	r := mux.NewRouter()
 
 	// Endpoints
@@ -66,9 +67,6 @@ func main() {
 
 	// Load CSS
 	r.PathPrefix("/static/css/").Handler(http.StripPrefix("/static/css/", http.FileServer(http.Dir("./static/css/"))))
-
-	// Register r as HTTP handler
-	http.Handle("/", mntr.MiddlewareMetrics(r, false))
 
 	/*
 		Prometheus metrics setup
@@ -87,13 +85,15 @@ func main() {
 		Start app server
 	*/
 
+	// Register r as HTTP handler
+	http.Handle("/", mntr.MiddlewareMetrics(r, false))
+
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + strconv.Itoa(port),
 		WriteTimeout: 10 * time.Second,
 		ReadTimeout:  10 * time.Second,
 	}
 
-	db = ctrl.ConnectDB(ctrl.DBPath)
 	log.Printf("Starting app on port %d\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
@@ -104,43 +104,65 @@ func main() {
 // Default size: 80
 func gravatarUrl(email string, size int) string {
 	email = strings.TrimSpace(email)
-	md := md5.New()
-	io.WriteString(md, email)
-	return fmt.Sprintf("http://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(md.Sum(nil)), size)
+	hash := sha512.New()
+	io.WriteString(hash, email)
+	return fmt.Sprintf("https://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(hash.Sum(nil)), size)
 }
 
 func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, ctrl.User) {
 	session, _ := store.Get(r, "user-session")
 
-	user := ctrl.User{}
+	var user ctrl.User
 
 	if session.Values["user_id"] == nil || session.Values["username"] == nil {
-		user.ID = 0
-		user.Username = ""
+		user = ctrl.User{
+			ID:       0,
+			Username: "",
+		}
+
 		clearUserSessionData(w, r)
 	} else {
-		user.ID = session.Values["user_id"].(uint)
-		user.Username = session.Values["username"].(string)
+		user = ctrl.User{
+			ID:       session.Values["user_id"].(uint),
+			Username: session.Values["username"].(string),
+		}
 	}
 
-	log.Println("getUserSession, User:", user)
+	log.Println("getUserSession, User:", user.Username)
 	return session, user
 }
 
-func getMessages(w http.ResponseWriter, r *http.Request, public bool) []map[string]interface{} {
+func getMessages(w http.ResponseWriter, r *http.Request, public bool) ([]ctrl.Message, error) {
 	_, user := getUserSession(w, r)
+	var messages []ctrl.Message
 
 	if public {
-		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id order by message.pub_date desc limit ?", perPage)
-		res := ctrl.HandleQuery(rows, err)
-		log.Printf("Showing %d results", len(res))
-		return res
+		query := db.Limit(perPage).
+			Joins("JOIN user ON message.author_id = user.user_id").
+			Order("message.pub_date desc").
+			Find("flagged = ?", 0, &messages)
+
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			return nil, query.Error
+		}
 	} else {
-		rows, err := db.Query("select message.*, user.* from message, user where message.flagged = 0 and message.author_id = user.user_id and (user.user_id = ? or user.user_id in (select whom_id from follower where who_id = ?)) order by message.pub_date desc limit ?", user.ID, user.ID, perPage)
-		res := ctrl.HandleQuery(rows, err)
-		log.Printf("Showing %d results", len(res))
-		return res
+		subquery := db.Select("whom_id").Find("who_id = ?", user.ID, &ctrl.Follower{})
+		query := db.Limit(perPage).
+			Joins("JOIN user ON message.author_id = user.user_id").
+			Order("message.pub_date desc").
+			Where("user.user_id = ?", user.ID).
+			Or("user.user_id IN ?", subquery).
+			Find("flagged = ?", 0, &messages)
+
+		if subquery.Error != nil && !errors.Is(subquery.Error, gorm.ErrRecordNotFound) {
+			return nil, subquery.Error
+		} else if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			return nil, query.Error
+		}
 	}
+
+	log.Printf("Showing %d results", len(messages))
+	return messages, nil
 }
 
 func setupTimelineTemplates(data TimelineData) *template.Template {
@@ -177,6 +199,8 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	fmt.Println("We got a visitor from: " + r.RemoteAddr)
 
+	var tmpl *template.Template
+
 	_, user := getUserSession(w, r)
 
 	if user.Username == "" {
@@ -185,7 +209,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	// offset?
 
-	messages := getMessages(w, r, false)
+	messages, err := getMessages(w, r, false)
 
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
@@ -193,7 +217,12 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 		SessionData: SessionData{User: ctrl.User{Username: user.Username}},
 	}
 
-	tmpl := setupTimelineTemplates(data)
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
+	tmpl = setupTimelineTemplates(data)
 	tmpl.Execute(w, data)
 }
 
@@ -201,7 +230,13 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	fmt.Println("public timeline!")
 
-	messages := getMessages(w, r, true)
+	messages, err := getMessages(w, r, true)
+
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
 	_, user := getUserSession(w, r)
 
 	data := TimelineData{
@@ -235,10 +270,17 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 		followed = res != nil || len(res) != 0
 	}
 
+	messages, err := getMessages(w, r, true)
+
+	if err != nil {
+		w.WriteHeader(500)
+		return
+	}
+
 	data := TimelineData{
 		RequestUrl:   r.URL.Path,
 		Followed:     followed,
-		Messages:     getMessages(w, r, true),
+		Messages:     messages,
 		Profile_User: ctrl.User{Username: profile_user[0]["username"].(string)},
 		SessionData:  SessionData{User: ctrl.User{Username: user.Username}},
 	}

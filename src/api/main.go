@@ -43,9 +43,6 @@ func main() {
 	r.HandleFunc("/api/msgs/{username}", messagesPerUser)
 	r.HandleFunc("/api/msgs", messages)
 
-	// Register r as HTTP handler
-	http.Handle("/", mntr.MiddlewareMetrics(r, true))
-
 	/*
 		Prometheus metrics setup
 	*/
@@ -62,6 +59,9 @@ func main() {
 	/*
 		Start API server
 	*/
+
+	// Register r as HTTP handler
+	http.Handle("/", mntr.MiddlewareMetrics(r, true))
 
 	srv := &http.Server{
 		Addr:         "0.0.0.0:" + strconv.Itoa(port),
