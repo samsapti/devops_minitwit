@@ -19,7 +19,8 @@ import (
 )
 
 type Response struct {
-	Status int
+	Status   int
+	ErrorMsg string
 }
 
 var (
@@ -75,17 +76,15 @@ func main() {
 	}
 }
 
-func notReqFromSimulator(w http.ResponseWriter, r *http.Request) []byte {
+func notReqFromSimulator(w http.ResponseWriter, r *http.Request) *Response {
 	if r.Header.Get("Authorization") != os.Getenv("SIM_AUTH") {
 		w.Header().Set("Content-Type", "application/json")
+		status := 403
 
-		response, _ := json.Marshal(map[string]interface{}{
-			"status": http.StatusForbidden,
-			"error":  "You are not authorized to use this resource!",
-		})
-
-		w.Write(response)
-		return response
+		return &Response{
+			Status:   status,
+			ErrorMsg: "You are not authorized to use this resource!",
+		}
 	}
 
 	return nil
@@ -113,6 +112,7 @@ func getLatest(w http.ResponseWriter, r *http.Request) {
 	}{latest})
 
 	w.Write(resp)
+	w.WriteHeader(200)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
@@ -157,9 +157,19 @@ func register(w http.ResponseWriter, r *http.Request) {
 			log.Println("Created" + reqData.Username)
 			ctrl.CheckError(err)
 		}
+
+		if status == 400 {
+			response, _ := json.Marshal(&Response{
+				Status:   status,
+				ErrorMsg: errorMsg,
+			})
+
+			w.Write(response)
+		}
+	} else {
+		status = 405 // Method Not Allowed
 	}
 
-	log.Println(errorMsg)
 	w.WriteHeader(status)
 }
 
@@ -168,11 +178,13 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	notFromSimResponse := notReqFromSimulator(w, r)
 
 	if notFromSimResponse != nil {
-		w.WriteHeader(403)
-		w.Write(notFromSimResponse)
+		response, _ := json.Marshal(notFromSimResponse)
+		w.WriteHeader(notFromSimResponse.Status)
+		w.Write(response)
 		return
 	}
 
+	status := 200
 	def := 100
 	vars := mux.Vars(r)
 	val := def
@@ -184,6 +196,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 	noMsgs := val
 
 	if r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json")
 		var messages []ctrl.Message
 
 		query := db.Limit(noMsgs).
@@ -193,18 +206,16 @@ func messages(w http.ResponseWriter, r *http.Request) {
 			Find(&messages)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			response, _ := json.Marshal(&Response{Status: 500})
-			w.WriteHeader(500)
+			status = 500
+		} else {
+			response, _ := json.Marshal(messages)
 			w.Write(response)
-			return
 		}
-
-		response, _ := json.Marshal(messages)
-		w.WriteHeader(200)
-		w.Write(response)
 	} else {
-		w.WriteHeader(405) // Method Not Allowed
+		status = 405 // Method Not Allowed
 	}
+
+	w.WriteHeader(status)
 }
 
 func messagesPerUser(w http.ResponseWriter, r *http.Request) {
@@ -212,10 +223,13 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 	notFromSimResponse := notReqFromSimulator(w, r)
 
 	if notFromSimResponse != nil {
-		w.WriteHeader(403)
-		w.Write(notFromSimResponse)
+		response, _ := json.Marshal(notFromSimResponse)
+		w.WriteHeader(notFromSimResponse.Status)
+		w.Write(response)
+		return
 	}
 
+	var status int
 	def := 100
 	vars := mux.Vars(r)
 	noMsgs := def
@@ -232,6 +246,9 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json")
+		status = 200
+
 		var messages []ctrl.Message
 
 		db.Limit(noMsgs).
@@ -243,10 +260,11 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		log.Println(len(messages))
 
 		response, _ := json.Marshal(messages)
-		w.WriteHeader(200)
 		w.Write(response)
 	} else if r.Method == "POST" {
-		log.Println("TWEET:")
+		log.Println("TWIT:")
+
+		status = 204
 
 		reqData := struct {
 			Content string `json:"content"`
@@ -261,10 +279,10 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 			Flagged:  0,
 		})
 	} else {
-		w.WriteHeader(405) // Method Not Allowed
+		status = 405 // Method Not Allowed
 	}
 
-	w.WriteHeader(204)
+	w.WriteHeader(status)
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
@@ -274,8 +292,9 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	notFromSimResponse := notReqFromSimulator(w, r)
 
 	if notFromSimResponse != nil {
-		w.WriteHeader(403)
-		w.Write(notFromSimResponse)
+		response, _ := json.Marshal(notFromSimResponse)
+		w.WriteHeader(notFromSimResponse.Status)
+		w.Write(response)
 		return
 	}
 
@@ -295,6 +314,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	json.NewDecoder(r.Body).Decode(&reqData)
 
 	if len(reqData.Follow) != 0 && r.Method == "POST" {
+		status = 204
 		followID := ctrl.GetUserID(reqData.Follow, db)
 
 		if followID == 0 {
@@ -307,13 +327,10 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 			if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 				status = 500
-			} else {
-				status = 204
 			}
 		}
-
-		w.WriteHeader(status)
 	} else if len(reqData.Unfollow) != 0 && r.Method == "POST" {
+		status = 204
 		unfollowID := ctrl.GetUserID(reqData.Unfollow, db)
 
 		if unfollowID == 0 {
@@ -328,12 +345,11 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			status = 500
-		} else {
-			status = 204
 		}
-
-		w.WriteHeader(status)
 	} else if r.Method == "GET" {
+		w.Header().Set("Content-Type", "application/json")
+		status = 200
+
 		var followers []ctrl.User
 		var followerNames []interface{}
 
@@ -343,20 +359,19 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			status = 500
 		} else {
-			status = 200
-
 			for _, f := range followers {
 				log.Println(f.Username)
 				log.Println(f.ID)
 				followerNames = append(followerNames, f.Username)
 			}
+
+			response, _ := json.Marshal(struct {
+				Followers []interface{} `json:"followers"`
+			}{Followers: followerNames})
+
+			w.Write(response)
 		}
-
-		response, _ := json.Marshal(struct {
-			Followers []interface{} `json:"followers"`
-		}{Followers: followerNames})
-
-		w.WriteHeader(status)
-		w.Write(response)
 	}
+
+	w.WriteHeader(status)
 }
