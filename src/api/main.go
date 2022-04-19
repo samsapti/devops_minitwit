@@ -254,7 +254,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		db.Limit(noMsgs).
 			Joins("JOIN user ON message.author_id = user.user_id").
 			Order("message.pub_date desc").
-			Where(&ctrl.Message{AuthorID: int(userID), Flagged: 0}).
+			Where(&ctrl.Message{AuthorID: userID, Flagged: 0}).
 			Find(&messages)
 
 		log.Println(len(messages))
@@ -273,7 +273,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		json.NewDecoder(r.Body).Decode(&reqData)
 
 		db.Create(&ctrl.Message{
-			AuthorID: int(userID),
+			AuthorID: userID,
 			Text:     reqData.Content,
 			Date:     time.Now().Unix(),
 			Flagged:  0,

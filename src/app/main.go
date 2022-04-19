@@ -55,6 +55,7 @@ func main() {
 
 	// Endpoints
 	r.HandleFunc("/", timeline)
+	r.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
 	r.HandleFunc("/public", publicTimeline)
 	r.HandleFunc("/add_message", addMessage).Methods("POST")
 	r.HandleFunc("/login", login).Methods("GET", "POST")
@@ -63,13 +64,12 @@ func main() {
 	r.HandleFunc("/{username}", userTimeline)
 	r.HandleFunc("/{username}/follow", follow)
 	r.HandleFunc("/{username}/unfollow", unfollow)
-	r.HandleFunc("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {})
 
 	// Load CSS
 	r.PathPrefix("/static/css/").Handler(http.StripPrefix("/static/css/", http.FileServer(http.Dir("./static/css/"))))
 
 	/*
-		Prometheus metrics setup
+	   Prometheus metrics setup
 	*/
 
 	http.Handle("/metrics", promhttp.Handler())
@@ -82,7 +82,7 @@ func main() {
 	}()
 
 	/*
-		Start app server
+	   Start app server
 	*/
 
 	// Register r as HTTP handler
@@ -132,7 +132,7 @@ func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, 
 	return session, user
 }
 
-func getMessages(w http.ResponseWriter, r *http.Request, public bool) ([]ctrl.Message, error) {
+func getMessages(w http.ResponseWriter, r *http.Request, public bool, own bool) ([]ctrl.Message, error) {
 	_, user := getUserSession(w, r)
 	var messages []ctrl.Message
 
@@ -140,23 +140,34 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool) ([]ctrl.Me
 		query := db.Limit(perPage).
 			Joins("JOIN user ON message.author_id = user.user_id").
 			Order("message.pub_date desc").
-			Find("flagged = ?", 0, &messages)
+			Find(&messages, "flagged = ?", 0)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			return nil, query.Error
 		}
-	} else {
-		subquery := db.Select("whom_id").Find("who_id = ?", user.ID, &ctrl.Follower{})
+	} else if own {
+		subquery := db.Select("whom_id").Find(&ctrl.Follower{}, "who_id = ?", user.ID)
 		query := db.Limit(perPage).
 			Joins("JOIN user ON message.author_id = user.user_id").
 			Order("message.pub_date desc").
 			Where("user.user_id = ?", user.ID).
-			Or("user.user_id IN ?", subquery).
-			Find("flagged = ?", 0, &messages)
+			Or("user.user_id IN (?)", subquery).
+			Find(&messages, "flagged = ?", 0)
 
 		if subquery.Error != nil && !errors.Is(subquery.Error, gorm.ErrRecordNotFound) {
 			return nil, subquery.Error
 		} else if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			return nil, query.Error
+		}
+	} else {
+		username := mux.Vars(r)["username"]
+
+		query := db.Limit(perPage).
+			Order("pub_date desc").
+			Joins("JOIN user ON message.author_id = user.user_id").
+			Find(&messages, "message.flagged = ? AND user.username = ?", 0, username)
+
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			return nil, query.Error
 		}
 	}
@@ -167,8 +178,10 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool) ([]ctrl.Me
 
 func setupTimelineTemplates(data TimelineData) *template.Template {
 	tmpl, err := template.New("timeline.html").Funcs(template.FuncMap{
-		"gravatar_url": func(email string, size int) string {
-			return gravatarUrl(email, size)
+		"gravatar_url": func(authorID uint, size int) string {
+			var author ctrl.User
+			db.First(&author, "user_id = ?", authorID)
+			return gravatarUrl(author.Email, size)
 		},
 		"format_datetime": func(t int64) string {
 			return time.Unix(t, 0).Format("2006-01-02 @ 15:04")
@@ -187,6 +200,11 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 				return true
 			}
 			return false
+		},
+		"get_username": func(id uint) string {
+			var user ctrl.User
+			db.First(&user, "user_id = ?", id)
+			return user.Username
 		},
 	}).ParseFiles("static/timeline.html", "static/layout.html")
 
@@ -209,7 +227,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 	// offset?
 
-	messages, err := getMessages(w, r, false)
+	messages, err := getMessages(w, r, false, true)
 
 	data := TimelineData{
 		RequestUrl:  r.URL.Path,
@@ -230,9 +248,10 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	fmt.Println("public timeline!")
 
-	messages, err := getMessages(w, r, true)
+	messages, err := getMessages(w, r, true, false)
 
 	if err != nil {
+		log.Println(err)
 		w.WriteHeader(500)
 		return
 	}
@@ -253,24 +272,37 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	vars := mux.Vars(r)
 
-	rows, err := db.Query("select * from user where username = ?", vars["username"])
-	profile_user := ctrl.HandleQuery(rows, err)
+	var profileUser ctrl.User
+	queryCheck := db.First(&profileUser, "username = ?", vars["username"])
 
-	if len(profile_user) < 1 {
-		w.WriteHeader(404)
+	if queryCheck.Error != nil {
+		if errors.Is(queryCheck.Error, gorm.ErrRecordNotFound) {
+			w.WriteHeader(404)
+			return
+		}
+
+		w.WriteHeader(500)
 		return
 	}
 
 	_, user := getUserSession(w, r)
-	followed := false
+	followed := true
 
 	if user.ID != 0 {
-		rows, err := db.Query("select 1 from follower where follower.who_id = ? and follower.whom_id = ?", user.ID, profile_user[0]["user_id"].(int64))
-		res := ctrl.HandleQuery(rows, err)
-		followed = res != nil || len(res) != 0
+		var follow ctrl.Follower
+		query := db.First(&follow, "who_id = ? AND whom_id = ?", user.ID, profileUser.ID)
+
+		if query.Error != nil {
+			if errors.Is(query.Error, gorm.ErrRecordNotFound) {
+				followed = false
+			} else {
+				w.WriteHeader(500)
+				return
+			}
+		}
 	}
 
-	messages, err := getMessages(w, r, true)
+	messages, err := getMessages(w, r, false, false)
 
 	if err != nil {
 		w.WriteHeader(500)
@@ -281,7 +313,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 		RequestUrl:   r.URL.Path,
 		Followed:     followed,
 		Messages:     messages,
-		Profile_User: ctrl.User{Username: profile_user[0]["username"].(string)},
+		Profile_User: ctrl.User{Username: profileUser.Username},
 		SessionData:  SessionData{User: ctrl.User{Username: user.Username}},
 	}
 
@@ -291,20 +323,28 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 
 func follow(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
-
 	session, user := getUserSession(w, r)
+
 	if user.Username == "" {
 		w.WriteHeader(401)
 		return
 	}
+
 	vars := mux.Vars(r)
-	whom_id := ctrl.GetUserID(vars["username"], db)
-	if whom_id == -1 {
+	followsID := ctrl.GetUserID(vars["username"], db)
+
+	if followsID == 0 {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Exec("insert into follower (who_id, whom_id) values (?, ?)", user.ID, whom_id)
-	ctrl.CheckError(err)
+
+	query := db.Create(&ctrl.Follower{FollowerID: user.ID, FollowsID: followsID})
+
+	if query.Error != nil {
+		w.WriteHeader(500)
+		return
+	}
+
 	session.AddFlash("You are now following %s", vars["username"])
 	str := "/" + vars["username"]
 	http.Redirect(w, r, str, http.StatusSeeOther)
@@ -312,20 +352,28 @@ func follow(w http.ResponseWriter, r *http.Request) {
 
 func unfollow(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
-
 	session, user := getUserSession(w, r)
+
 	if user.Username == "" {
 		w.WriteHeader(401)
 		return
 	}
+
 	vars := mux.Vars(r)
-	whom_id := ctrl.GetUserID(vars["username"], db)
-	if whom_id == -1 {
+	followsID := ctrl.GetUserID(vars["username"], db)
+
+	if followsID == 0 {
 		w.WriteHeader(404)
 		return
 	}
-	_, err := db.Exec("delete from follower where who_id=? and whom_id=?", user.ID, whom_id)
-	ctrl.CheckError(err)
+
+	query := db.Where("who_id = ? AND whom_id = ?", user.ID, followsID).Delete(&ctrl.Follower{})
+
+	if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+		w.WriteHeader(500)
+		return
+	}
+
 	session.AddFlash("You are no longer following %s", vars["username"])
 	session.Save(r, w)
 	str := "/" + vars["username"]
@@ -335,17 +383,30 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 func addMessage(w http.ResponseWriter, r *http.Request) {
 	fmt.Println(r.URL.Path)
 	session, user := getUserSession(w, r)
+	text := r.FormValue("text")
 
 	if user.ID == 0 {
 		w.WriteHeader(401)
 		return
 	}
-	if r.FormValue("text") != "" {
-		_, err := db.Exec("insert into message (author_id, text, pub_date, flagged) values (?, ?, ?, 0)", user.ID, r.FormValue("text"), int(time.Now().Unix()))
-		ctrl.CheckError(err)
+
+	if text != "" {
+		query := db.Create(&ctrl.Message{
+			AuthorID: user.ID,
+			Text:     text,
+			Date:     time.Now().Unix(),
+			Flagged:  0,
+		})
+
+		if query.Error != nil {
+			w.WriteHeader(500)
+			return
+		}
+
 		session.AddFlash("Your message was recorded")
 		session.Save(r, w)
 	}
+
 	http.Redirect(w, r, "/", http.StatusSeeOther)
 }
 
@@ -367,17 +428,21 @@ func login(w http.ResponseWriter, r *http.Request) {
 		inputUsername := r.FormValue("username")
 		inputPassword := r.FormValue("password")
 
-		rows, err := db.Query("select * from user where username = ?", inputUsername)
-		user := ctrl.HandleQuery(rows, err)
+		var user ctrl.User
+		query := db.First(&user, "username = ?", inputUsername)
 
-		if user == nil {
-			error = "Invalid username"
-		} else if !checkPwHash(inputPassword, user[0]["pw_hash"].(string)) {
-			error = "Invalid password"
+		if query.Error != nil {
+			if errors.Is(query.Error, gorm.ErrRecordNotFound) {
+				error = "Invalid username"
+			} else if !checkPwHash(inputPassword, user.PwHash) {
+				error = "Invalid password"
+			} else {
+				error = "Something went wrong"
+			}
 		} else {
 			session.AddFlash("You were logged in")
-			session.Values["user_id"] = user[0]["user_id"]
-			session.Values["username"] = user[0]["username"]
+			session.Values["user_id"] = user.ID
+			session.Values["username"] = user.Username
 			session.Save(r, w)
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
@@ -393,6 +458,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 		Error:       error,
 		SessionData: SessionData{Flashes: session.Flashes()},
 	}
+
 	tmpl.Execute(w, data)
 }
 
@@ -407,21 +473,37 @@ func register(w http.ResponseWriter, r *http.Request) {
 
 	var error string
 	if r.Method == "POST" {
-		if r.FormValue("username") == "" {
+		inputUsername := r.FormValue("username")
+		inputEmail := r.FormValue("email")
+		inputPassword := r.FormValue("password")
+		inputRepeatPassword := r.FormValue("password2")
+		userID := ctrl.GetUserID(inputUsername, db)
+
+		if inputUsername == "" {
 			error = "You have to enter a username"
-		} else if r.FormValue("email") == "" || !strings.Contains(r.FormValue("email"), "@") {
+		} else if inputEmail == "" || !strings.Contains(inputEmail, "@") {
 			error = "You have to enter a valid email address"
-		} else if r.FormValue("password") == "" {
+		} else if inputPassword == "" {
 			error = "You have to enter a password"
-		} else if r.FormValue("password") != r.FormValue("password2") {
+		} else if inputPassword != inputRepeatPassword {
 			error = "The two passwords do not match"
-		} else if ctrl.GetUserID(r.FormValue("username"), db) != -1 {
+		} else if userID != 0 {
 			error = "The username is already taken"
 		} else {
-			hashed_pw, err := ctrl.HashPw(r.FormValue("password"))
+			hashed_pw, err := ctrl.HashPw(inputPassword)
 			ctrl.CheckError(err)
-			_, err = db.Exec("insert into user (username, email, pw_hash) values (?, ?, ?)", r.FormValue("username"), r.FormValue("email"), hashed_pw)
-			ctrl.CheckError(err)
+
+			query := db.Create(&ctrl.User{
+				Username: inputUsername,
+				Email:    inputEmail,
+				PwHash:   hashed_pw,
+			})
+
+			if query.Error != nil {
+				w.WriteHeader(500)
+				return
+			}
+
 			session.AddFlash("You were successfully registered and can login now")
 			session.Save(r, w)
 			http.Redirect(w, r, "/login", http.StatusSeeOther)

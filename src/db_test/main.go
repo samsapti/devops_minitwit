@@ -18,9 +18,9 @@ type User struct {
 }
 
 type Follower struct {
-	FollowerID uint `json:"follower_id" gorm:"primaryKey;column:who_id"` // Explicitly declare PK
-	FollowsID  uint `json:"follows_id" gorm:"primaryKey;column:whom_id"` // Composite PK
-	Follower   User `gorm:"foreignKey:FollowerID"`                       // FK relationship
+	FollowerID uint `json:"follower_id" gorm:"primaryKey;column:follower_id"` // Explicitly declare PK
+	FollowsID  uint `json:"follows_id" gorm:"primaryKey;column:follows_id"`   // Composite PK
+	Follower   User `gorm:"foreignKey:FollowerID"`                            // FK relationship
 	Follows    User `gorm:"foreignKey:FollowsID"`
 }
 
@@ -35,7 +35,7 @@ type Message struct {
 
 func main() {
 	// Create temporary database in memory
-	db, err := gorm.Open(sqlite.Open("/tmp/minitwit.db" /*"file::memory:?cache=shared"*/), &gorm.Config{
+	db, err := gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
@@ -86,7 +86,7 @@ func main() {
 
 	// Find the created record
 	var salsFollowsJkof Follower
-	db.First(&salsFollowsJkof, "follower_id = ? AND followed_id = ?", sals.ID, jkof.ID) // inline where clause
+	db.First(&salsFollowsJkof, "follower_id = ? AND follows_id = ?", sals.ID, jkof.ID) // inline where clause
 
 	if salsFollowsJkof.FollowerID == 0 {
 		fmt.Printf("%s does not follow %s\n", sals.Username, jkof.Username)
@@ -95,10 +95,10 @@ func main() {
 	}
 
 	// Deletion
-	db.Delete(&salsFollowsJkof)                                                           // Delete the record like this
-	db.Where("follower_id = ? AND followed_id = ?", sals.ID, jkof.ID).Delete(&Follower{}) // Or this
-	salsFollowsJkof = Follower{}                                                          // Reset salsFollowsJkof
-	db.Where(&Follower{FollowerID: sals.ID}).First(&salsFollowsJkof)                      // Retrieve record, this time with a struct
+	db.Delete(&salsFollowsJkof)                                                          // Delete the record like this
+	db.Where("follower_id = ? AND follows_id = ?", sals.ID, jkof.ID).Delete(&Follower{}) // Or this
+	salsFollowsJkof = Follower{}                                                         // Reset salsFollowsJkof
+	db.Where(&Follower{FollowerID: sals.ID}).First(&salsFollowsJkof)                     // Retrieve record, this time with a struct
 
 	if salsFollowsJkof.FollowerID == 0 {
 		fmt.Printf("%s does not follow %s anymore\n", sals.Username, jkof.Username) // <-- evaluates to true

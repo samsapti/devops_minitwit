@@ -29,7 +29,7 @@ type Follower struct {
 
 type Message struct {
 	ID       uint   `json:"message_id" gorm:"column:message_id"`
-	AuthorID int    `json:"author_id" gorm:"not null"`
+	AuthorID uint   `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
 	Date     int64  `json:"pub_date" gorm:"column:pub_date"`
 	Flagged  uint8  `json:"flagged"`
