@@ -1,38 +1,39 @@
 {{ template "base" .}}
 {{ define "title" }} {{ timeline_title }} {{ end }}
 {{ define "body" }}
-  <h2>{{ timeline_title }}</h2>
-  {{ if (ne .SessionData.User.Username "") }}
-    {{ if (eq .RequestUrl "/") }}
-      <div class=twitbox>
-        <h3>What's on your mind {{ .SessionData.User.Username }}?</h3>
-        <form action="/add_message" method=post>
-          <p><input type=text name=text size=60>
-          <input type=submit value="Share">
-        </form>
-      </div>
-    {{ else if requestUserTimeline }}
-      <div class=followstatus>
-        {{ if (eq .SessionData.User.Username .Profile_User.Username)}}
-          This is you!
-        {{ else if .Followed }}
-          You are currently following this user.
-          <a class=unfollow href="/{{ .Profile_User.Username }}/unfollow">Unfollow user</a>.
-        {{ else }}
-          You are not yet following this user.
-          <a class=follow href="/{{ .Profile_User.Username }}/follow">Follow user</a>.
-        {{ end }}
-      </div>
-    {{ end }}
+<h2>{{ timeline_title }}</h2>
+{{ if (ne .SessionData.User.Username "") }}
+{{ if (eq .RequestUrl "/") }}
+<div class=twitbox>
+  <h3>What's on your mind {{ .SessionData.User.Username }}?</h3>
+  <form action="/add_message" method=post>
+    <p><input type=text name=text size=60>
+      <input type=submit value="Share">
+  </form>
+</div>
+{{ else if requestUserTimeline }}
+<div class=followstatus>
+  {{ if (eq .SessionData.User.Username .Profile_User.Username)}}
+  This is you!
+  {{ else if .Followed }}
+  You are currently following this user.
+  <a class=unfollow href="/{{ .Profile_User.Username }}/unfollow">Unfollow user</a>.
+  {{ else }}
+  You are not yet following this user.
+  <a class=follow href="/{{ .Profile_User.Username }}/follow">Follow user</a>.
   {{ end }}
-  <ul class=messages>
-    {{ range .Messages }}
-      <li><img src="{{ gravatar_url .email 48 }}"><p>
-      <strong><a href="/{{ .username }}">{{ .username }}</a></strong>
-        {{ .text }}
-      <small>&mdash; {{ format_datetime .pub_date }}</small>
-    {{ else }}
-      <li><em>There's no message so far.</em>
+</div>
+{{ end }}
+{{ end }}
+<ul class=messages>
+  {{ range .Messages }}
+  <li><img src="{{ gravatar_url .AuthorID 48 }}">
+    <p>
+      <strong><a href="/{{ get_username .AuthorID }}">{{ get_username .AuthorID }}</a></strong>
+      {{ .Text }}
+      <small>&mdash; {{ format_datetime .Date }}</small>
+      {{ else }}
+  <li><em>There's no message so far.</em>
     {{ end }}
-  </ul>
+</ul>
 {{ end }}
