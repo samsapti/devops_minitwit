@@ -2,7 +2,7 @@
     rewrite /api /api/
     rewrite /grafana /grafana/
 
-    reverse_proxy app:8080
     reverse_proxy /api/* api:8000
     reverse_proxy /grafana/* grafana:3000
+    reverse_proxy app:8080
 }
