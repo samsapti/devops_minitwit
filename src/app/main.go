@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strconv"
 
-	"crypto/sha512"
+	"crypto/md5"
 	"encoding/hex"
 	"html/template"
 	"io"
@@ -104,7 +104,7 @@ func main() {
 // Default size: 80
 func gravatarUrl(email string, size int) string {
 	email = strings.TrimSpace(email)
-	hash := sha512.New()
+	hash := md5.New()
 	io.WriteString(hash, email)
 	return fmt.Sprintf("https://www.gravatar.com/avatar/%s?d=identicon&s=%d", hex.EncodeToString(hash.Sum(nil)), size)
 }
