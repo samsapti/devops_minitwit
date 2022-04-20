@@ -17,7 +17,9 @@ services:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_config:/config
       - caddy_data:/data
-    network_mode: host
+    ports:
+      - "80:80"
+      - "443:443"
     cap_drop:
       - ALL
     cap_add:
