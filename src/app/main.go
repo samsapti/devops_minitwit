@@ -94,7 +94,7 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	fmt.Printf("MiniTwit App listening on port %v", port)
+	fmt.Printf("MiniTwit App listening on port %v\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error serving on port %v: %s\n", port, err)
