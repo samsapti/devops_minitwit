@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -52,7 +52,8 @@ func main() {
 	// Use goroutine because http.ListenAndServe() is a blocking method
 	go func() {
 		if err := http.ListenAndServe(":2112", nil); err != nil {
-			log.Fatal("Error: ", err)
+			fmt.Fprintf(os.Stderr, "Error serving for Prometheus: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -69,10 +70,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	log.Printf("Starting API on port %d\n", port)
+	fmt.Printf("MiniTwit API listening on port %v\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal("Error: ", err)
+		fmt.Fprintf(os.Stderr, "Error serving on port %v: %s\n", port, err)
+		os.Exit(1)
 	}
 }
 
@@ -116,7 +118,6 @@ func getLatest(w http.ResponseWriter, r *http.Request) {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	log.Println("REGISTER:")
 	updateLatest(r)
 
 	reqData := struct {
@@ -146,16 +147,17 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else {
 			status = 204
 			pw, err := ctrl.HashPw(reqData.Pwd)
-			ctrl.CheckError(err)
 
-			db.Create(&ctrl.User{
-				Username: reqData.Username,
-				Email:    reqData.Email,
-				PwHash:   pw,
-			})
-
-			log.Println("Created" + reqData.Username)
-			ctrl.CheckError(err)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "register: Error in password hashing: %s\n", err)
+				status = 500
+			} else {
+				db.Create(&ctrl.User{
+					Username: reqData.Username,
+					Email:    reqData.Email,
+					PwHash:   pw,
+				})
+			}
 		}
 
 		if status == 400 {
@@ -206,6 +208,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 			Find(&messages)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			fmt.Fprintf(os.Stderr, "messages: Error in database lookup: %s\n", query.Error)
 			status = 500
 		} else {
 			response, _ := json.Marshal(messages)
@@ -251,18 +254,17 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 
 		var messages []ctrl.Message
 
-		db.Limit(noMsgs).
+		query := db.Limit(noMsgs).
 			Joins("JOIN user ON message.author_id = user.user_id").
 			Order("message.pub_date desc").
 			Where(&ctrl.Message{AuthorID: userID, Flagged: 0}).
 			Find(&messages)
 
-		log.Println(len(messages))
-
-		response, _ := json.Marshal(messages)
-		w.Write(response)
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			fmt.Fprintf(os.Stderr, "messagesPerUser: Error in database lookup: %s\n", query.Error)
+			status = 500
+		}
 	} else if r.Method == "POST" {
-		log.Println("TWIT:")
 
 		status = 204
 
@@ -272,12 +274,17 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 
 		json.NewDecoder(r.Body).Decode(&reqData)
 
-		db.Create(&ctrl.Message{
+		query := db.Create(&ctrl.Message{
 			AuthorID: userID,
 			Text:     reqData.Content,
 			Date:     time.Now().Unix(),
 			Flagged:  0,
 		})
+
+		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			fmt.Fprintf(os.Stderr, "messagesPerUser: Error in creating database record: %s\n", query.Error)
+			status = 500
+		}
 	} else {
 		status = 405 // Method Not Allowed
 	}
@@ -286,8 +293,6 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
-	log.Println("FOLLOW/UNFOLLOW:")
-
 	updateLatest(r)
 	notFromSimResponse := notReqFromSimulator(w, r)
 
@@ -326,6 +331,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+				fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 				status = 500
 			}
 		}
@@ -344,6 +350,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 			status = 500
 		}
 	} else if r.Method == "GET" {
@@ -353,15 +360,14 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		var followers []ctrl.User
 		var followerNames []interface{}
 
-		query := db.Debug().Select("user.username").Joins("INNER JOIN follower ON user.user_id = follower.who_id").
+		query := db.Select("user.username").Joins("INNER JOIN follower ON user.user_id = follower.who_id").
 			Find(&followers, "follower.whom_id = ?", userID)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+			fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 			status = 500
 		} else {
 			for _, f := range followers {
-				log.Println(f.Username)
-				log.Println(f.ID)
 				followerNames = append(followerNames, f.Username)
 			}
 

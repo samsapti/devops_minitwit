@@ -1,12 +1,16 @@
+FROM docker.io/library/golang:1.18 AS builder
+
+COPY src /minitwit
+WORKDIR /minitwit/app
+
+RUN go mod download
+RUN GOOS=linux CGO_ENABLED=1 go build -o app .
+
 FROM docker.io/library/golang:1.18
 
-ARG branch=main
+COPY --from=builder /minitwit/app /minitwit
+WORKDIR /minitwit
 
-WORKDIR /app
-RUN git clone -b ${branch} --depth=1 "https://github.com/salsitu/minitwit_thesvindler.git"
+USER 1000
 
-WORKDIR /app/minitwit_thesvindler/src/app
-RUN go mod download
-RUN GOOS=linux CGO_ENABLED=1 go build -o minitwit-app .
-
-ENTRYPOINT [ "./minitwit-app" ]
+ENTRYPOINT [ "./app" ]

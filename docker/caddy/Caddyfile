@@ -1,8 +1,18 @@
 {$DOMAINNAME} {
     rewrite /api /api/
     rewrite /grafana /grafana/
+    rewrite /kibana /kibana/
 
     reverse_proxy /api/* api:8000
     reverse_proxy /grafana/* grafana:3000
+
+    handle /kibana/* {
+        basicauth {
+	        devops22 {$KIBANA_PW_HASH}
+        }
+
+        reverse_proxy kibana:5601
+    }
+
     reverse_proxy app:8080
 }

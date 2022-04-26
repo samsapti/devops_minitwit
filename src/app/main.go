@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"html/template"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -77,7 +76,8 @@ func main() {
 	// Use goroutine because http.ListenAndServe() is a blocking method
 	go func() {
 		if err := http.ListenAndServe(":2112", nil); err != nil {
-			log.Fatal("Error: ", err)
+			fmt.Fprintf(os.Stderr, "Error serving for Prometheus: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -94,10 +94,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
-	log.Printf("Starting app on port %d\n", port)
+	fmt.Printf("MiniTwit App listening on port %v\n", port)
 
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal("Error: ", err)
+		fmt.Fprintf(os.Stderr, "Error serving on port %v: %s\n", port, err)
+		os.Exit(1)
 	}
 }
 
@@ -128,7 +129,6 @@ func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, 
 		}
 	}
 
-	log.Println("getUserSession, User:", user.Username)
 	return session, user
 }
 
@@ -172,7 +172,6 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool, own bool) 
 		}
 	}
 
-	log.Printf("Showing %d results", len(messages))
 	return messages, nil
 }
 
@@ -196,10 +195,7 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 			}
 		},
 		"requestUserTimeline": func() bool {
-			if data.RequestUrl[0] == '/' && len(data.RequestUrl) > 1 && data.RequestUrl != "/public" {
-				return true
-			}
-			return false
+			return data.RequestUrl[0] == '/' && len(data.RequestUrl) > 1 && data.RequestUrl != "/public"
 		},
 		"get_username": func(id uint) string {
 			var user ctrl.User
@@ -208,15 +204,13 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 		},
 	}).ParseFiles("static/timeline.html", "static/layout.html")
 
-	ctrl.CheckError(err)
-
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error setting up timeline: %s\n", err)
+	}
 	return tmpl
 }
 
 func timeline(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
-	fmt.Println("We got a visitor from: " + r.RemoteAddr)
-
 	var tmpl *template.Template
 
 	_, user := getUserSession(w, r)
@@ -236,6 +230,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "timeline: Error fetching messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -245,13 +240,10 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func publicTimeline(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
-	fmt.Println("public timeline!")
-
 	messages, err := getMessages(w, r, true, false)
 
 	if err != nil {
-		log.Println(err)
+		fmt.Fprintf(os.Stderr, "publicTimeline: Error fetching messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -269,7 +261,6 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func userTimeline(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	vars := mux.Vars(r)
 
 	var profileUser ctrl.User
@@ -281,6 +272,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		fmt.Fprintf(os.Stderr, "userTimeline: Error in database lookup: %s\n", queryCheck.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -296,6 +288,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(query.Error, gorm.ErrRecordNotFound) {
 				followed = false
 			} else {
+				fmt.Fprintf(os.Stderr, "userTimeline: Error in database lookup: %s\n", query.Error)
 				w.WriteHeader(500)
 				return
 			}
@@ -305,6 +298,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 	messages, err := getMessages(w, r, false, false)
 
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "userTimeline: Error getting messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -322,7 +316,6 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 }
 
 func follow(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	session, user := getUserSession(w, r)
 
 	if user.Username == "" {
@@ -341,6 +334,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	query := db.Create(&ctrl.Follower{FollowerID: user.ID, FollowsID: followsID})
 
 	if query.Error != nil {
+		fmt.Fprintf(os.Stderr, "follow: Error in creating database record: %s\n", query.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -351,7 +345,6 @@ func follow(w http.ResponseWriter, r *http.Request) {
 }
 
 func unfollow(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	session, user := getUserSession(w, r)
 
 	if user.Username == "" {
@@ -370,6 +363,7 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 	query := db.Where("who_id = ? AND whom_id = ?", user.ID, followsID).Delete(&ctrl.Follower{})
 
 	if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+		fmt.Fprintf(os.Stderr, "unfollow: Error in database lookup: %s\n", query.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -381,7 +375,6 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 }
 
 func addMessage(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	session, user := getUserSession(w, r)
 	text := r.FormValue("text")
 
@@ -399,6 +392,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if query.Error != nil {
+			fmt.Fprintf(os.Stderr, "addMessage: Error in creating database record: %s\n", query.Error)
 			w.WriteHeader(500)
 			return
 		}
@@ -411,14 +405,9 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
-
 	session, user := getUserSession(w, r)
 	user_id := user.ID
-	username := user.Username
 	if user_id != 0 {
-		fmt.Println("user_id is", user_id)   // delete later
-		fmt.Println("username is", username) // delete later
 		http.Redirect(w, r, "/", http.StatusSeeOther)
 		return
 	}
@@ -450,7 +439,9 @@ func login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tmpl, err := template.ParseFiles("static/login.html", "static/layout.html")
-	ctrl.CheckError(err)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "login: Error in parsing HTML: %s\n", err)
+	}
 	data := struct {
 		Error       string
 		SessionData SessionData
@@ -463,7 +454,6 @@ func login(w http.ResponseWriter, r *http.Request) {
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	session, _ := store.Get(r, "user-session")
 	user_id := session.Values["user_id"]
 	if user_id != nil {
@@ -491,7 +481,11 @@ func register(w http.ResponseWriter, r *http.Request) {
 			error = "The username is already taken"
 		} else {
 			hashed_pw, err := ctrl.HashPw(inputPassword)
-			ctrl.CheckError(err)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "register: Error in password hashing: %s\n", err)
+				w.WriteHeader(500)
+				return
+			}
 
 			query := db.Create(&ctrl.User{
 				Username: inputUsername,
@@ -500,6 +494,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if query.Error != nil {
+				fmt.Fprintf(os.Stderr, "register: Error in creating database record: %s\n", query.Error)
 				w.WriteHeader(500)
 				return
 			}
@@ -511,7 +506,13 @@ func register(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	tmpl, err := template.ParseFiles("static/register.html", "static/layout.html")
-	ctrl.CheckError(err)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "register: Error in parsing HTML: %s\n", err)
+		w.WriteHeader(500)
+		return
+	}
+
 	data := struct {
 		Error       string
 		SessionData SessionData
@@ -523,7 +524,6 @@ func register(w http.ResponseWriter, r *http.Request) {
 }
 
 func logout(w http.ResponseWriter, r *http.Request) {
-	fmt.Println(r.URL.Path)
 	session, _ := store.Get(r, "user-session")
 	session.AddFlash("You were logged out")
 	clearUserSessionData(w, r)

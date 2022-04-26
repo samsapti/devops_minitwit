@@ -1,22 +1,20 @@
 version: "3.8"
 
-volumes:
-  caddy_config:
-  caddy_data:
-  grafana_data:
-  prometheus_data:
-
 services:
   caddy:
     image: caddy:2-alpine
-    container_name: minitwit_caddy
+    container_name: "minitwit_caddy"
     restart: unless-stopped
     environment:
-      DOMAINNAME: ${DOMAINNAME:-localhost:80}
+      DOMAINNAME: "${DOMAINNAME:-localhost:80}"
+      KIBANA_PW_HASH: "${KIBANA_PW_HASH:-admin}"
     volumes:
       - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_config:/config
       - caddy_data:/data
+    networks:
+      - main
+      - elk
     ports:
       - "80:80"
       - "443:443"
@@ -28,31 +26,31 @@ services:
 
   api:
     image: salsitu/minitwitapi:latest
-    container_name: minitwit_api
+    container_name: "minitwit_api"
     restart: unless-stopped
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
-    ports:
-      - "127.0.0.1:8000:8000"
+    networks:
+      - main
     depends_on:
       - grafana
       - prometheus
 
   app:
     image: salsitu/minitwitapp:latest
-    container_name: minitwit_app
+    container_name: "minitwit_app"
     restart: unless-stopped
     volumes:
       - $HOME/db/minitwit.db:/tmp/minitwit.db
-    ports:
-      - "127.0.0.1:8080:8080"
+    networks:
+      - main
     depends_on:
       - grafana
       - prometheus
 
   grafana:
     image: grafana/grafana-oss:latest
-    container_name: minitwit_grafana
+    container_name: "minitwit_grafana"
     restart: unless-stopped
     environment:
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: "/var/lib/grafana/dashboards/home_dashboard.json"
@@ -63,19 +61,69 @@ services:
     user: root
     volumes:
       - ./docker/grafana/provisioning:/etc/grafana/provisioning:ro
-      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:eo
+      - ./docker/grafana/dashboards:/var/lib/grafana/dashboards:ro
       - grafana_data:/var/lib/grafana
-    ports:
-      - "127.0.0.1:3000:3000"
+    networks:
+      - main
 
   prometheus:
     image: prom/prometheus:latest
-    container_name: minitwit_prometheus
+    container_name: "minitwit_prometheus"
     restart: unless-stopped
     user: root
     command: --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus/data
-    ports:
-      - "127.0.0.1:9090:9090"
+    networks:
+      - main
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch-oss:7.10.2
+    container_name: "minitwit_elasticsearch"
+    environment:
+      ES_JAVA_OPTS: "-Xms2g -Xmx2g"
+      discovery.type: "single-node"
+    volumes:
+      - elk_minitwit_data:/usr/share/elasticsearch/data
+    networks:
+      - elk
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat-oss:7.10.2
+    container_name: "minitwit_filebeat"
+    user: root
+    volumes:
+      - ./docker/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker:/var/lib/docker:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana-oss:7.10.2
+    container_name: "minitwit_kibana"
+    environment:
+      SERVER_BASEPATH: "/kibana"
+      SERVER_REWRITEBASEPATH: "true"
+      TELEMETRY_ENABLED: "false"
+      elasticsearch.hosts: '["http://elasticsearch:9200"]'
+    networks:
+      - elk
+    depends_on:
+      - elasticsearch
+
+volumes:
+  caddy_config:
+  caddy_data:
+  elk_minitwit_data:
+  grafana_data:
+  prometheus_data:
+
+networks:
+  elk:
+    name: elk-network
+  main:
+    name: main-network

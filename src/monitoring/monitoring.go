@@ -1,15 +1,12 @@
 package monitoring
 
 import (
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/shirou/gopsutil/cpu"
-
-	ctrl "minitwit/controllers"
 )
 
 var (
@@ -49,9 +46,8 @@ func MiddlewareMetrics(h http.Handler, isApi bool) http.Handler {
 		// BEFORE REQUEST
 		start := time.Now()
 		cpuUsage, err := cpu.Percent(0, false)
-		log.Println(isApi)
 
-		if !ctrl.CheckError(err) {
+		if err == nil {
 			if isApi {
 				apiCPUGauge.Set(cpuUsage[0])
 			} else {
