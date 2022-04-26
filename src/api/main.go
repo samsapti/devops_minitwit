@@ -52,7 +52,8 @@ func main() {
 	// Use goroutine because http.ListenAndServe() is a blocking method
 	go func() {
 		if err := http.ListenAndServe(":2112", nil); err != nil {
-			fmt.Printf("Error serving for Prometheus: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error serving for Prometheus: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -69,8 +70,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
+	fmt.Printf("MiniTwit API listening on port %v", port)
+
 	if err := srv.ListenAndServe(); err != nil {
-		fmt.Printf("Error serving on port %v: %s\n", port, err)
+		fmt.Fprintf(os.Stderr, "Error serving on port %v: %s\n", port, err)
+		os.Exit(1)
 	}
 }
 
@@ -145,7 +149,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			pw, err := ctrl.HashPw(reqData.Pwd)
 
 			if err != nil {
-				fmt.Printf("register: Error in password hashing: %s\n", err)
+				fmt.Fprintf(os.Stderr, "register: Error in password hashing: %s\n", err)
 				status = 500
 			} else {
 				db.Create(&ctrl.User{
@@ -204,7 +208,7 @@ func messages(w http.ResponseWriter, r *http.Request) {
 			Find(&messages)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			fmt.Printf("messages: Error in database lookup: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "messages: Error in database lookup: %s\n", query.Error)
 			status = 500
 		} else {
 			response, _ := json.Marshal(messages)
@@ -257,7 +261,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 			Find(&messages)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			fmt.Printf("messagesPerUser: Error in database lookup: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "messagesPerUser: Error in database lookup: %s\n", query.Error)
 			status = 500
 		}
 	} else if r.Method == "POST" {
@@ -278,7 +282,7 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			fmt.Printf("messagesPerUser: Error in creating database record: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "messagesPerUser: Error in creating database record: %s\n", query.Error)
 			status = 500
 		}
 	} else {
@@ -327,7 +331,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-				fmt.Printf("follow: Error in database lookup: %s\n", query.Error)
+				fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 				status = 500
 			}
 		}
@@ -346,7 +350,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			fmt.Printf("follow: Error in database lookup: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 			status = 500
 		}
 	} else if r.Method == "GET" {
@@ -360,7 +364,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 			Find(&followers, "follower.whom_id = ?", userID)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-			fmt.Printf("follow: Error in database lookup: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)
 			status = 500
 		} else {
 			for _, f := range followers {

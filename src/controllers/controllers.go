@@ -3,9 +3,11 @@ package controllers
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 	"gorm.io/gorm/schema"
 
 	"golang.org/x/crypto/bcrypt"
@@ -43,13 +45,15 @@ const (
 
 func ConnectDB() *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(DBPath), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Silent),
 		NamingStrategy: schema.NamingStrategy{
 			SingularTable: true,
 		},
 	})
 
 	if err != nil {
-		fmt.Printf("ERROR: failed to connect database: %s\n", err)
+		fmt.Fprintf(os.Stderr, "ConnectDB: Error connecting to database: %s\n", err)
+		os.Exit(1)
 	}
 
 	db.AutoMigrate(&User{}, &Follower{}, &Message{})
@@ -72,8 +76,4 @@ func GetUserID(username string, db *gorm.DB) uint {
 func HashPw(password string) (string, error) {
 	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 8)
 	return string(bytes), err
-}
-
-func main() {
-	ConnectDB()
 }

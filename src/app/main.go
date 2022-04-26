@@ -76,7 +76,8 @@ func main() {
 	// Use goroutine because http.ListenAndServe() is a blocking method
 	go func() {
 		if err := http.ListenAndServe(":2112", nil); err != nil {
-			fmt.Printf("Error serving for Prometheus: %s\n", err)
+			fmt.Fprintf(os.Stderr, "Error serving for Prometheus: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
@@ -93,8 +94,11 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 	}
 
+	fmt.Printf("MiniTwit App listening on port %v", port)
+
 	if err := srv.ListenAndServe(); err != nil {
-		fmt.Printf("Error serving on port %v: %s\n", port, err)
+		fmt.Fprintf(os.Stderr, "Error serving on port %v: %s\n", port, err)
+		os.Exit(1)
 	}
 }
 
@@ -201,7 +205,7 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 	}).ParseFiles("static/timeline.html", "static/layout.html")
 
 	if err != nil {
-		fmt.Printf("Error setting up timeline: %s\n", err)
+		fmt.Fprintf(os.Stderr, "Error setting up timeline: %s\n", err)
 	}
 	return tmpl
 }
@@ -226,7 +230,7 @@ func timeline(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		fmt.Printf("timeline: Error fetching messages: %s\n", err)
+		fmt.Fprintf(os.Stderr, "timeline: Error fetching messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -239,7 +243,7 @@ func publicTimeline(w http.ResponseWriter, r *http.Request) {
 	messages, err := getMessages(w, r, true, false)
 
 	if err != nil {
-		fmt.Printf("publicTimeline: Error fetching messages: %s\n", err)
+		fmt.Fprintf(os.Stderr, "publicTimeline: Error fetching messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -268,7 +272,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		fmt.Printf("userTimeline: Error in database lookup: %s\n", queryCheck.Error)
+		fmt.Fprintf(os.Stderr, "userTimeline: Error in database lookup: %s\n", queryCheck.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -284,7 +288,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 			if errors.Is(query.Error, gorm.ErrRecordNotFound) {
 				followed = false
 			} else {
-				fmt.Printf("userTimeline: Error in database lookup: %s\n", query.Error)
+				fmt.Fprintf(os.Stderr, "userTimeline: Error in database lookup: %s\n", query.Error)
 				w.WriteHeader(500)
 				return
 			}
@@ -294,7 +298,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 	messages, err := getMessages(w, r, false, false)
 
 	if err != nil {
-		fmt.Printf("userTimeline: Error getting messages: %s\n", err)
+		fmt.Fprintf(os.Stderr, "userTimeline: Error getting messages: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
@@ -330,7 +334,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 	query := db.Create(&ctrl.Follower{FollowerID: user.ID, FollowsID: followsID})
 
 	if query.Error != nil {
-		fmt.Printf("follow: Error in creating database record: %s\n", query.Error)
+		fmt.Fprintf(os.Stderr, "follow: Error in creating database record: %s\n", query.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -359,7 +363,7 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 	query := db.Where("who_id = ? AND whom_id = ?", user.ID, followsID).Delete(&ctrl.Follower{})
 
 	if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
-		fmt.Printf("unfollow: Error in database lookup: %s\n", query.Error)
+		fmt.Fprintf(os.Stderr, "unfollow: Error in database lookup: %s\n", query.Error)
 		w.WriteHeader(500)
 		return
 	}
@@ -388,7 +392,7 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 		})
 
 		if query.Error != nil {
-			fmt.Printf("addMessage: Error in creating database record: %s\n", query.Error)
+			fmt.Fprintf(os.Stderr, "addMessage: Error in creating database record: %s\n", query.Error)
 			w.WriteHeader(500)
 			return
 		}
@@ -436,7 +440,7 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 	tmpl, err := template.ParseFiles("static/login.html", "static/layout.html")
 	if err != nil {
-		fmt.Printf("login: Error in parsing HTML: %s\n", err)
+		fmt.Fprintf(os.Stderr, "login: Error in parsing HTML: %s\n", err)
 	}
 	data := struct {
 		Error       string
@@ -478,7 +482,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 		} else {
 			hashed_pw, err := ctrl.HashPw(inputPassword)
 			if err != nil {
-				fmt.Printf("register: Error in password hashing: %s\n", err)
+				fmt.Fprintf(os.Stderr, "register: Error in password hashing: %s\n", err)
 				w.WriteHeader(500)
 				return
 			}
@@ -490,7 +494,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 			})
 
 			if query.Error != nil {
-				fmt.Printf("register: Error in creating database record: %s\n", query.Error)
+				fmt.Fprintf(os.Stderr, "register: Error in creating database record: %s\n", query.Error)
 				w.WriteHeader(500)
 				return
 			}
@@ -504,7 +508,7 @@ func register(w http.ResponseWriter, r *http.Request) {
 	tmpl, err := template.ParseFiles("static/register.html", "static/layout.html")
 
 	if err != nil {
-		fmt.Printf("register: Error in parsing HTML: %s\n", err)
+		fmt.Fprintf(os.Stderr, "register: Error in parsing HTML: %s\n", err)
 		w.WriteHeader(500)
 		return
 	}
