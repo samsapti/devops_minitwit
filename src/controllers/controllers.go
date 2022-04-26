@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"errors"
-	"log"
+	"fmt"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -41,14 +41,6 @@ const (
 	InitDBSchema = "../sql/db_init.sql"
 )
 
-func CheckError(err error) bool {
-	if err != nil {
-		log.Printf("Error: %s\n", err)
-	}
-
-	return err != nil
-}
-
 func ConnectDB() *gorm.DB {
 	db, err := gorm.Open(sqlite.Open(DBPath), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{
@@ -57,12 +49,10 @@ func ConnectDB() *gorm.DB {
 	})
 
 	if err != nil {
-		log.Fatalf("ERROR: failed to connect database: %s", err)
+		fmt.Printf("ERROR: failed to connect database: %s\n", err)
 	}
 
-	log.Println("Connecting to database...")
 	db.AutoMigrate(&User{}, &Follower{}, &Message{})
-	log.Println("Database connected")
 
 	return db
 }

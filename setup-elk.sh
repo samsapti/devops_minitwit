@@ -2,8 +2,9 @@
 
 cd $(dirname ${BASH_SOURCE[0]})
 
-file="docker/filebeat/filebeat.yml"
-fileTemplate="$file.template"
+path="docker/filebeat"
+file="$path/filebeat.yml"
+fileTemplate="$path/filebeat.template.yml"
 
 if [[ ! $file -nt $fileTemplate ]]; then
     [[ -f $file ]] && sudo rm $file
