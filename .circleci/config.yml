@@ -8,30 +8,38 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - run: echo "BUILD API"
-      - run: docker build -f docker/api.Dockerfile -t ${DOCKER_USERNAME}/minitwitapi:latest .
-      - run: echo "BUILD APP"
-      - run: docker build -f docker/app.Dockerfile -t ${DOCKER_USERNAME}/minitwitapp:latest .
-      - run: echo "LOGIN"
-      - run: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
-      - run: echo "PUSH"
-      - run: docker push ${DOCKER_USERNAME}/minitwitapi:latest
-      - run: docker push ${DOCKER_USERNAME}/minitwitapp:latest
+      - run:
+          name: Build API Docker image
+          command: docker build -f docker/api.Dockerfile -t ${DOCKER_USERNAME}/minitwitapi:latest .
+      - run:
+          name: Build app Docker image
+          command: docker build -f docker/app.Dockerfile -t ${DOCKER_USERNAME}/minitwitapp:latest .
+      - run: 
+          name: Log in to Docker Hub
+          command: docker login -u ${DOCKER_USERNAME} -p ${DOCKER_PASSWORD}
+      - run:
+          name: Push API image to Docker Hub
+          command: docker push ${DOCKER_USERNAME}/minitwitapi:latest
+      - run: 
+          name: Push app image to Docker Hub
+          command: docker push ${DOCKER_USERNAME}/minitwitapp:latest
 
   deploy:
     docker:
       - image: buildpack-deps:trusty
     steps:
       - checkout
-      - run: |
-          ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
-          "cd ~/minitwit_thesvindler && \
-          docker-compose down && \
-          git pull && \
-          echo ${SUDO_PASS} | sudo -S bash ./setup-elk.sh && \
-          docker-compose pull && \
-          docker system prune -f && \
-          docker-compose up -d"
+      - run:
+          name: Push to VPS
+          command: |
+            ssh -o "StrictHostKeyChecking no" ${MT_USER}@${MT_SERVER} \
+            "cd ~/minitwit_thesvindler && \
+            docker-compose down && \
+            git pull && \
+            echo ${SUDO_PASS} | sudo -S bash ./setup-elk.sh && \
+            docker-compose pull && \
+            docker system prune -f && \
+            docker-compose up -d"
 
 workflows:
   deploy-workflow:
