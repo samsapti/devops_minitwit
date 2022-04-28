@@ -114,7 +114,6 @@ func getLatest(w http.ResponseWriter, r *http.Request) {
 	}{latest})
 
 	w.Write(resp)
-	w.WriteHeader(200)
 }
 
 func register(w http.ResponseWriter, r *http.Request) {
