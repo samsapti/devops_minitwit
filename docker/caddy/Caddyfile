@@ -8,11 +8,37 @@
 
     handle /kibana/* {
         basicauth {
-	        devops22 {$KIBANA_PW_HASH}
+            devops22 {$KIBANA_PW_HASH}
         }
 
         reverse_proxy kibana:5601
     }
 
     reverse_proxy app:8080
+
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+        # CSP
+        Content-Security-Policy "upgrade-insecure-requests; child-src 'none'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; form-action 'self'; font-src 'self'; frame-ancestors 'self'; base-uri 'self'; img-src 'self' data: https://*"
+
+        # Enable cross-site filter (XSS) and tell browser to block detected attacks
+        X-XSS-Protection "1; mode=block"
+
+        # Prevent some browsers from MIME-sniffing a response away from the declared Content-Type
+        X-Content-Type-Options "nosniff"
+
+        # Disallow the site to be rendered within a frame (clickjacking protection)
+        X-Frame-Options "SAMEORIGIN"
+
+        # Disable some features
+        Permissions-Policy "accelerometer=(),ambient-light-sensor=(),autoplay=(),camera=(),encrypted-media=(),focus-without-user-activation=(),geolocation=(),gyroscope=(),magnetometer=(),microphone=(),midi=(),payment=(),picture-in-picture=(),speaker=(),sync-xhr=(),usb=(),vr=()"
+
+        # Disable some features (legacy)
+        Feature-Policy "accelerometer 'none';ambient-light-sensor 'none'; autoplay 'none';camera 'none';encrypted-media 'none';focus-without-user-activation 'none'; geolocation 'none';gyroscope 'none';magnetometer 'none';microphone 'none';midi 'none';payment 'none';picture-in-picture 'none'; speaker 'none';sync-xhr 'none';usb 'none';vr 'none'"
+	
+        # Remove server header
+    	-server
+    }
 }
