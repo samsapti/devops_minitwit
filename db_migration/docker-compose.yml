@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: "minitwit_db"
       POSTGRES_USER: "minitwit_user"
       POSTGRES_PASSWORD: "passwd"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
   
   pgloader:
     image: dimitri/pgloader:latest
@@ -19,3 +21,7 @@ services:
     command: pgloader /pgconfig.sql
     depends_on:
       - db
+
+volumes:
+  postgres_data:
+    name: "minitwit_thesvindler_postgres_data"
