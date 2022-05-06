@@ -138,20 +138,20 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool, own bool) 
 
 	if public {
 		query := db.Limit(perPage).
-			Joins("JOIN user ON message.author_id = user.user_id").
-			Order("message.pub_date desc").
+			Joins("JOIN users ON messages.author_id = users.id").
+			Order("messages.date desc").
 			Find(&messages, "flagged = ?", 0)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			return nil, query.Error
 		}
 	} else if own {
-		subquery := db.Select("whom_id").Find(&ctrl.Follower{}, "who_id = ?", user.ID)
+		subquery := db.Select("follows_id").Find(&ctrl.Follower{}, "follower_id = ?", user.ID)
 		query := db.Limit(perPage).
-			Joins("JOIN user ON message.author_id = user.user_id").
-			Order("message.pub_date desc").
-			Where("user.user_id = ?", user.ID).
-			Or("user.user_id IN (?)", subquery).
+			Joins("JOIN users ON messages.author_id = users.id").
+			Order("messages.date desc").
+			Where("users.id = ?", user.ID).
+			Or("users.id IN (?)", subquery).
 			Find(&messages, "flagged = ?", 0)
 
 		if subquery.Error != nil && !errors.Is(subquery.Error, gorm.ErrRecordNotFound) {
@@ -163,9 +163,9 @@ func getMessages(w http.ResponseWriter, r *http.Request, public bool, own bool) 
 		username := mux.Vars(r)["username"]
 
 		query := db.Limit(perPage).
-			Order("pub_date desc").
-			Joins("JOIN user ON message.author_id = user.user_id").
-			Find(&messages, "message.flagged = ? AND user.username = ?", 0, username)
+			Order("date desc").
+			Joins("JOIN users ON messages.author_id = users.id").
+			Find(&messages, "messages.flagged = ? AND users.username = ?", 0, username)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			return nil, query.Error
@@ -179,7 +179,7 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 	tmpl, err := template.New("timeline.html").Funcs(template.FuncMap{
 		"gravatar_url": func(authorID uint, size int) string {
 			var author ctrl.User
-			db.First(&author, "user_id = ?", authorID)
+			db.First(&author, "id = ?", authorID)
 			return gravatarUrl(author.Email, size)
 		},
 		"format_datetime": func(t int64) string {
@@ -199,7 +199,7 @@ func setupTimelineTemplates(data TimelineData) *template.Template {
 		},
 		"get_username": func(id uint) string {
 			var user ctrl.User
-			db.First(&user, "user_id = ?", id)
+			db.First(&user, "id = ?", id)
 			return user.Username
 		},
 	}).ParseFiles("static/timeline.html", "static/layout.html")
@@ -282,7 +282,7 @@ func userTimeline(w http.ResponseWriter, r *http.Request) {
 
 	if user.ID != 0 {
 		var follow ctrl.Follower
-		query := db.First(&follow, "who_id = ? AND whom_id = ?", user.ID, profileUser.ID)
+		query := db.First(&follow, "follower_id = ? AND follows_id = ?", user.ID, profileUser.ID)
 
 		if query.Error != nil {
 			if errors.Is(query.Error, gorm.ErrRecordNotFound) {
@@ -360,7 +360,7 @@ func unfollow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	query := db.Where("who_id = ? AND whom_id = ?", user.ID, followsID).Delete(&ctrl.Follower{})
+	query := db.Where("follower_id = ? AND follows_id = ?", user.ID, followsID).Delete(&ctrl.Follower{})
 
 	if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 		fmt.Fprintf(os.Stderr, "unfollow: Error in database lookup: %s\n", query.Error)

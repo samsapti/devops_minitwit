@@ -28,8 +28,8 @@ services:
     image: salsitu/minitwitapi:latest
     container_name: "minitwit_api"
     restart: unless-stopped
-    volumes:
-      - $HOME/db/minitwit.db:/tmp/minitwit.db
+    environment:
+      DB_PASSWD: "${DB_PASSWD:-passwd}"
     networks:
       - main
     depends_on:
@@ -40,13 +40,26 @@ services:
     image: salsitu/minitwitapp:latest
     container_name: "minitwit_app"
     restart: unless-stopped
-    volumes:
-      - $HOME/db/minitwit.db:/tmp/minitwit.db
+    environment:
+      DB_PASSWD: "${DB_PASSWD:-passwd}"
     networks:
       - main
     depends_on:
       - grafana
       - prometheus
+
+  postgres:
+    image: postgres:13-alpine
+    container_name: "minitwit_postgres"
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: "minitwit_db"
+      POSTGRES_USER: "minitwit_user"
+      POSTGRES_PASSWORD: "${DB_PASSWD:-passwd}"
+    networks:
+      - main
 
   grafana:
     image: grafana/grafana-oss:latest
@@ -120,6 +133,7 @@ volumes:
   caddy_data:
   elk_minitwit_data:
   grafana_data:
+  postgres_data:
   prometheus_data:
 
 networks:

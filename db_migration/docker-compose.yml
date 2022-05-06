@@ -1,0 +1,27 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:13-alpine
+    container_name: "minitwit_db"
+    environment:
+      POSTGRES_DB: "minitwit_db"
+      POSTGRES_USER: "minitwit_user"
+      POSTGRES_PASSWORD: "passwd"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  pgloader:
+    image: dimitri/pgloader:latest
+    container_name: "pgloader"
+    restart: on-failure
+    volumes:
+      - "$HOME/db/minitwit.db:/tmp/minitwit.db"
+      - "./pgconfig.sql:/pgconfig.sql:ro"
+    command: pgloader /pgconfig.sql
+    depends_on:
+      - db
+
+volumes:
+  postgres_data:
+    name: "minitwit_thesvindler_postgres_data"
