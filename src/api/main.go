@@ -201,8 +201,8 @@ func messages(w http.ResponseWriter, r *http.Request) {
 		var messages []ctrl.Message
 
 		query := db.Limit(noMsgs).
-			Joins("JOIN user ON message.author_id = user.user_id").
-			Order("message.pub_date desc").
+			Joins("JOIN users ON messages.author_id = users.id").
+			Order("messages.date desc").
 			Where("flagged = ?", 0).
 			Find(&messages)
 
@@ -254,8 +254,8 @@ func messagesPerUser(w http.ResponseWriter, r *http.Request) {
 		var messages []ctrl.Message
 
 		query := db.Limit(noMsgs).
-			Joins("JOIN user ON message.author_id = user.user_id").
-			Order("message.pub_date desc").
+			Joins("JOIN users ON messages.author_id = users.id").
+			Order("messages.date desc").
 			Where(&ctrl.Message{AuthorID: userID, Flagged: 0}).
 			Find(&messages)
 
@@ -324,7 +324,7 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		if followID == 0 {
 			status = 404
 		} else {
-			query := db.Debug().FirstOrCreate(&ctrl.Follower{}, &ctrl.Follower{
+			query := db.FirstOrCreate(&ctrl.Follower{}, &ctrl.Follower{
 				FollowerID: userID,
 				FollowsID:  followID,
 			})
@@ -359,8 +359,8 @@ func follow(w http.ResponseWriter, r *http.Request) {
 		var followers []ctrl.User
 		var followerNames []interface{}
 
-		query := db.Select("user.username").Joins("INNER JOIN follower ON user.user_id = follower.who_id").
-			Find(&followers, "follower.whom_id = ?", userID)
+		query := db.Select("users.username").Joins("INNER JOIN followers ON users.id = followers.follower_id").
+			Find(&followers, "followers.follows_id = ?", userID)
 
 		if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
 			fmt.Fprintf(os.Stderr, "follow: Error in database lookup: %s\n", query.Error)

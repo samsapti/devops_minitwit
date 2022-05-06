@@ -28,8 +28,8 @@ services:
     image: salsitu/minitwitapi:latest
     container_name: "minitwit_api"
     restart: unless-stopped
-    volumes:
-      - $HOME/db/minitwit.db:/tmp/minitwit.db
+    environment:
+      DB_PASSWD: "${DB_PASSWD:-passwd}"
     networks:
       - main
     depends_on:
@@ -40,8 +40,8 @@ services:
     image: salsitu/minitwitapp:latest
     container_name: "minitwit_app"
     restart: unless-stopped
-    volumes:
-      - $HOME/db/minitwit.db:/tmp/minitwit.db
+    environment:
+      DB_PASSWD: "${DB_PASSWD:-passwd}"
     networks:
       - main
     depends_on:

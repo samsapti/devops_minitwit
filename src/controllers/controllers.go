@@ -5,35 +5,32 @@ import (
 	"fmt"
 	"os"
 
-	"gorm.io/driver/sqlite"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
-	"gorm.io/gorm/schema"
 
 	"golang.org/x/crypto/bcrypt"
 )
 
-// TODO: Rename columns when transitioning to PostgreSQL
-
 type User struct {
-	ID       uint   `json:"id" gorm:"column:user_id"`
+	ID       uint   `json:"id"`
 	Username string `json:"username" gorm:"not null"`
 	Email    string `json:"email" gorm:"not null"`
 	PwHash   string `json:"pw_hash" gorm:"not null"`
 }
 
 type Follower struct {
-	FollowerID uint `json:"follower_id" gorm:"column:who_id"`
-	FollowsID  uint `json:"follows_id" gorm:"column:whom_id"`
+	FollowerID uint `json:"follower_id"`
+	FollowsID  uint `json:"follows_id"`
 	Follower   User `gorm:"foreignKey:FollowerID"`
 	Follows    User `gorm:"foreignKey:FollowsID"`
 }
 
 type Message struct {
-	ID       uint   `json:"message_id" gorm:"column:message_id"`
+	ID       uint   `json:"message_id"`
 	AuthorID uint   `json:"author_id" gorm:"not null"`
 	Text     string `json:"text" gorm:"not null"`
-	Date     int64  `json:"pub_date" gorm:"column:pub_date"`
+	Date     int64  `json:"pub_date"`
 	Flagged  uint8  `json:"flagged"`
 	Author   User   `gorm:"foreignKey:AuthorID"`
 }
@@ -44,11 +41,9 @@ const (
 )
 
 func ConnectDB() *gorm.DB {
-	db, err := gorm.Open(sqlite.Open(DBPath), &gorm.Config{
+	dsn := "host=postgres user=minitwit_user password=" + os.Getenv("DB_PASSWD") + " dbname=minitwit_db port=5432"
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Silent),
-		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true,
-		},
 	})
 
 	if err != nil {
