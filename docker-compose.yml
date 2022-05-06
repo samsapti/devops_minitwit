@@ -48,6 +48,19 @@ services:
       - grafana
       - prometheus
 
+  db:
+    image: postgres:14-alpine
+    container_name: "minitwit_db"
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: "minitwit_db"
+      POSTGRES_USER: "minitwit_user"
+      POSTGRES_PASSWORD: "${DB_PASSWD:-passwd}"
+    networks:
+      - main
+
   grafana:
     image: grafana/grafana-oss:latest
     container_name: "minitwit_grafana"
@@ -120,6 +133,7 @@ volumes:
   caddy_data:
   elk_minitwit_data:
   grafana_data:
+  postgres_data:
   prometheus_data:
 
 networks:
