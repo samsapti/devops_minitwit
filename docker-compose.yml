@@ -1,29 +1,6 @@
 version: "3.8"
 
 services:
-  caddy:
-    image: caddy:2-alpine
-    container_name: "minitwit_caddy"
-    restart: unless-stopped
-    environment:
-      DOMAINNAME: "${DOMAINNAME:-localhost:80}"
-      KIBANA_PW_HASH: "${KIBANA_PW_HASH:-admin}"
-    volumes:
-      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_config:/config
-      - caddy_data:/data
-    networks:
-      - main
-      - elk
-    ports:
-      - "80:80"
-      - "443:443"
-    cap_drop:
-      - ALL
-    cap_add:
-      - NET_BIND_SERVICE
-      - DAC_OVERRIDE
-
   api:
     image: salsitu/minitwitapi:latest
     container_name: "minitwit_api"
@@ -127,6 +104,36 @@ services:
       - elk
     depends_on:
       - elasticsearch
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: "minitwit_caddy"
+    restart: unless-stopped
+    environment:
+      DOMAINNAME: "${DOMAINNAME:-localhost:80}"
+      KIBANA_PW_HASH: "${KIBANA_PW_HASH:-admin}"
+    volumes:
+      - ./docker/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_config:/config
+      - caddy_data:/data
+    networks:
+      - main
+      - elk
+    ports:
+      - "80:80"
+      - "443:443"
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - DAC_OVERRIDE
+
+  watchtower:
+    image: containrrr/watchtower:latest
+    container_name: "minitwit_watchtower"
+    restart: unless-stopped
+    volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
 
 volumes:
   caddy_config:
