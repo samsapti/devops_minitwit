@@ -12,5 +12,6 @@ COPY --from=builder /minitwit/api /minitwit
 WORKDIR /minitwit
 
 USER 1000
+EXPOSE 8000
 
 ENTRYPOINT [ "./api" ]
