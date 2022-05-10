@@ -12,5 +12,6 @@ COPY --from=builder /minitwit/app /minitwit
 WORKDIR /minitwit
 
 USER 1000
+EXPOSE 8080
 
 ENTRYPOINT [ "./app" ]
