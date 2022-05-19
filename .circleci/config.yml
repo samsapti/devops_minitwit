@@ -1,10 +1,27 @@
 version: 2.1
 
 jobs:
+  static_analysis:
+    working_directory: ~/app/src
+    docker:
+      - image: golang:1.18
+    steps:
+      - checkout:
+          path: ~/app
+      - run:
+          name: Install dependencies
+          command: go mod download
+      - run:
+          name: Install golangci-lint
+          command: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest && golangci-lint --version
+      - run:
+          name: Run golangci-lint with linters gosec, gofmt, staticcheck, gosimple and typecheck
+          command: golangci-lint run --disable-all -E gosec -E gofmt -E staticcheck -E gosimple -E unused -E typecheck
+
   build:
     working_directory: /app
     docker:
-      - image: docker:latest
+      - image: cimg/base:stable
     steps:
       - checkout
       - setup_remote_docker
@@ -26,7 +43,7 @@ jobs:
 
   deploy:
     docker:
-      - image: buildpack-deps:trusty
+      - image: cimg/base:stable
     steps:
       - checkout
       - run:
@@ -44,6 +61,7 @@ jobs:
 workflows:
   deploy-workflow:
     jobs:
+      - static_analysis
       - build:
           filters:
             branches:

@@ -35,11 +35,6 @@ type Message struct {
 	Author   User   `gorm:"foreignKey:AuthorID"`
 }
 
-const (
-	DBPath       = "/tmp/minitwit.db"
-	InitDBSchema = "../sql/db_init.sql"
-)
-
 func ConnectDB() *gorm.DB {
 	dsn := "host=postgres user=minitwit_user password=" + os.Getenv("DB_PASSWD") + " dbname=minitwit_db port=5432"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
