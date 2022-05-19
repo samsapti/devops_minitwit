@@ -4,7 +4,7 @@ jobs:
   static_analysis:
     working_directory: ~/app/src
     docker:
-      - image: golang:1.18-alpine
+      - image: golang:1.18
     steps:
       - checkout:
           path: ~/app
