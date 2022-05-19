@@ -19,7 +19,7 @@ jobs:
           command: golangci-lint run --disable-all -E gosec -E gofmt -E staticcheck -E gosimple -E unused -E typecheck
 
   build:
-    working_directory: /app
+    working_directory: ~/app
     docker:
       - image: cimg/base:stable
     steps:
@@ -42,6 +42,7 @@ jobs:
           command: docker push ${DOCKER_USERNAME}/minitwitapp:latest
 
   deploy:
+    working_directory: ~/app
     docker:
       - image: cimg/base:stable
     steps:
