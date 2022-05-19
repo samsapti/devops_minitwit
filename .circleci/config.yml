@@ -61,7 +61,7 @@ jobs:
 workflows:
   deploy-workflow:
     jobs:
-      - static_analysis:
+      - static_analysis
       - build:
           filters:
             branches:
