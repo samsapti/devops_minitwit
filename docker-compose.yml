@@ -154,7 +154,7 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      endpoint_mode: dnsrr
+      endpoint_mode: vip
 
   watchtower:
     image: containrrr/watchtower:latest
