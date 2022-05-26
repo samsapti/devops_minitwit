@@ -176,5 +176,9 @@ volumes:
 networks:
   elk:
     name: elk-network
+    driver: overlay
+    attachable: true
   main:
     name: main-network
+    driver: overlay
+    attachable: true
