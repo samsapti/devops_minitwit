@@ -83,7 +83,7 @@ services:
     volumes:
       - elk_minitwit_data:/usr/share/elasticsearch/data
     networks:
-      - elk
+      - main
     deploy:
       mode: replicated
       replicas: 1
@@ -97,7 +97,7 @@ services:
       - /var/lib/docker:/var/lib/docker:ro
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
-      - elk
+      - main
     deploy:
       mode: global
       endpoint_mode: dnsrr
@@ -111,7 +111,7 @@ services:
       TELEMETRY_ENABLED: "false"
       elasticsearch.hosts: '["http://elasticsearch:9200"]'
     networks:
-      - elk
+      - main
     deploy:
       mode: global
       endpoint_mode: dnsrr
@@ -128,7 +128,6 @@ services:
       - caddy_data:/data
     networks:
       - main
-      - elk
     ports:
       - "80:80"
       - "443:443"
@@ -160,10 +159,6 @@ volumes:
   prometheus_data:
 
 networks:
-  elk:
-    name: elk-network
-    driver: overlay
-    attachable: true
   main:
     name: main-network
     driver: overlay
