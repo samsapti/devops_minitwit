@@ -96,7 +96,7 @@ services:
       endpoint_mode: dnsrr
 
   filebeat:
-    image: salsitu/mintwitfilebeat:latest
+    image: salsitu/minitwitfilebeat:latest
     container_name: "minitwit_filebeat"
     user: root
     volumes:
@@ -125,7 +125,7 @@ services:
       mode: global
 
   caddy:
-    image: salsitu/mintwitcaddy:latest
+    image: salsitu/minitwitcaddy:latest
     container_name: "minitwit_caddy"
     restart: unless-stopped
     environment:
