@@ -44,7 +44,7 @@ services:
     deploy:
       mode: replicated
       replicas: 1
-      endpoint_mode: vip
+      endpoint_mode: dnsrr
 
   grafana:
     image: grafana/grafana-oss:latest
