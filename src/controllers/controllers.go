@@ -35,6 +35,11 @@ type Message struct {
 	Author   User   `gorm:"foreignKey:AuthorID"`
 }
 
+type Session struct {
+	SessionID string `gorm:"primaryKey;unique"`
+	UserID    uint   `gorm:"primaryKey"`
+}
+
 func ConnectDB() *gorm.DB {
 	dsn := "host=postgres user=minitwit_user password=" + os.Getenv("DB_PASSWD") + " dbname=minitwit_db port=5432"
 	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
@@ -46,7 +51,7 @@ func ConnectDB() *gorm.DB {
 		os.Exit(1)
 	}
 
-	db.AutoMigrate(&User{}, &Follower{}, &Message{})
+	db.AutoMigrate(&User{}, &Follower{}, &Message{}, &Session{})
 
 	return db
 }
@@ -60,6 +65,21 @@ func GetUserID(username string, db *gorm.DB) uint {
 	}
 
 	return user.ID
+}
+
+func GetUserFromSessionID(sessionID string, db *gorm.DB) (User, error) {
+	var user User
+
+	query := db.Joins("JOIN sessions ON users.id = sessions.user_id").
+		Where("sessions.session_id = ?", sessionID).
+		First(&user)
+
+	if query.Error != nil && !errors.Is(query.Error, gorm.ErrRecordNotFound) {
+		fmt.Fprintf(os.Stderr, "GetUserFromSessionID: Error fetching user: %s\n", query.Error)
+		return user, query.Error
+	}
+
+	return user, nil
 }
 
 // The function below has been borrowed from: https://gowebexamples.com/password-hashing/

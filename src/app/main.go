@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -115,7 +116,7 @@ func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, 
 
 	var user ctrl.User
 
-	if session.Values["user_id"] == nil || session.Values["username"] == nil {
+	if session.Values["session_id"] == nil {
 		user = ctrl.User{
 			ID:       0,
 			Username: "",
@@ -123,10 +124,7 @@ func getUserSession(w http.ResponseWriter, r *http.Request) (*sessions.Session, 
 
 		clearUserSessionData(w, r)
 	} else {
-		user = ctrl.User{
-			ID:       session.Values["user_id"].(uint),
-			Username: session.Values["username"].(string),
-		}
+		user, _ = ctrl.GetUserFromSessionID(session.Values["session_id"].(string), db)
 	}
 
 	return session, user
@@ -405,11 +403,18 @@ func addMessage(w http.ResponseWriter, r *http.Request) {
 }
 
 func login(w http.ResponseWriter, r *http.Request) {
-	session, user := getUserSession(w, r)
-	user_id := user.ID
-	if user_id != 0 {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+	session, _ := store.Get(r, "user-session")
+	sessionID := session.Values["session_id"]
+
+	if sessionID != nil {
+		user, err := ctrl.GetUserFromSessionID(sessionID.(string), db)
+
+		if err == nil && user.ID != 0 {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		} else {
+			clearUserSessionData(w, r)
+		}
 	}
 
 	var error string
@@ -430,9 +435,21 @@ func login(w http.ResponseWriter, r *http.Request) {
 			}
 		} else {
 			session.AddFlash("You were logged in")
-			session.Values["user_id"] = user.ID
-			session.Values["username"] = user.Username
+			sessionID := uuid.New().String()
+			session.Values["session_id"] = sessionID
 			session.Save(r, w)
+
+			query := db.Create(&ctrl.Session{
+				SessionID: sessionID,
+				UserID:    user.ID,
+			})
+
+			if query.Error != nil {
+				fmt.Fprintf(os.Stderr, "login: Error in creating database record: %s\n", query.Error)
+				w.WriteHeader(500)
+				return
+			}
+
 			http.Redirect(w, r, "/", http.StatusSeeOther)
 			return
 		}
@@ -455,10 +472,17 @@ func login(w http.ResponseWriter, r *http.Request) {
 
 func register(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
-	user_id := session.Values["user_id"]
-	if user_id != nil {
-		http.Redirect(w, r, "/", http.StatusSeeOther)
-		return
+	sessionID := session.Values["session_id"]
+
+	if sessionID != nil {
+		user, err := ctrl.GetUserFromSessionID(sessionID.(string), db)
+
+		if err == nil && user.ID != 0 {
+			http.Redirect(w, r, "/", http.StatusSeeOther)
+			return
+		} else {
+			clearUserSessionData(w, r)
+		}
 	}
 
 	var error string
@@ -532,8 +556,13 @@ func logout(w http.ResponseWriter, r *http.Request) {
 
 func clearUserSessionData(w http.ResponseWriter, r *http.Request) {
 	session, _ := store.Get(r, "user-session")
-	delete(session.Values, "user_id")  //session.Values["user_id"] = nil
-	delete(session.Values, "username") //session.Values["username"] = nil
+	sessionID := session.Values["session_id"]
+
+	if sessionID != nil {
+		db.Where("session_id = ?", sessionID.(string)).Delete(&ctrl.Session{})
+	}
+
+	session.Options.MaxAge = -1
 	session.Save(r, w)
 }
 
