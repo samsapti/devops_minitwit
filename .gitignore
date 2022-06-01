@@ -32,3 +32,10 @@ go.work
 
 .env
 filebeat.yml
+report/**/*.aux
+report/*.fls
+report/*.log
+report/*.toc
+report/*.pdf
+report/*.fdb_latexmk
+report/*.gz
