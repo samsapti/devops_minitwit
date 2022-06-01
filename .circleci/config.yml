@@ -72,13 +72,13 @@ jobs:
       - run:
           name: Build report
           command: |
-            mkdir build
-            pdflatex -output-directory build -interaction nonstopmode main.tex || true
+            mkdir build && \
+            { pdflatex -output-directory build -interaction nonstopmode main.tex || true } && \
             mv build/main.pdf build/report.pdf
       - persist_to_workspace:
           root: ~/app/report
           paths:
-            - build/report.pdf
+            - build
 
 workflows:
   deploy-workflow:
@@ -114,6 +114,6 @@ workflows:
             - run: mkdir ~/report
             - attach_workspace:
                 at: ~/report
-          files: ~/report/report.pdf
+          files: ~/report/build/report.pdf
           tag: ${CIRCLE_TAG}
           title: Report release
