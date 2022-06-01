@@ -59,35 +59,6 @@ jobs:
             docker system prune -f && \
             docker-compose up -d"
 
-  build_report:
-    working_directory: ~/app/report
-    docker:
-     - image: blang/latex:ubuntu
-    steps:
-      - checkout:
-          path: ~/app
-      - run:
-          name: Build report
-          command: mkdir build && pdflatex -output-directory build -interaction nonstopmode main.tex || true
-      - run:
-          name: Rename PDF
-          command: mv build/main.pdf build/report.pdf
-      - run:
-          name: Install GH CLI
-          command: |
-            apt update
-            apt install -y curl
-            curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg
-            echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null
-            apt update
-            apt install -y gh
-      - run:
-          name: Login to GH CLI
-          command: gh auth login --with-token ${GITHUB_TOKEN}
-      - run:
-          name: Make GH release
-          command: gh release create ${CIRCLE_TAG} build/report.pdf --generate-notes
-
 workflows:
   deploy-workflow:
     jobs:
@@ -104,9 +75,3 @@ workflows:
             branches:
               only:
                 - main
-      - build_report:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore: /.*/

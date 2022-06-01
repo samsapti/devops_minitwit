@@ -1,0 +1,27 @@
+name: Compile Latex
+on: [push]
+jobs:
+  build_latex:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set up Git repository
+        uses: actions/checkout@v2
+      - name: Compile LaTeX document
+        uses: dante-ev/latex-action@latest
+        with:
+          root_file: main.tex
+          working_directory: report
+          
+      - name: move pdf
+        run: |
+          mkdir -p build
+          mv main.pdf build/report.pdf
+        working-directory: report
+        
+      - name: Publish LaTeX
+        run: |
+          git config --global user.email "sals@itu.dk"
+          git config --global user.name "salsitu"
+          git add -f $PWD/report/build/*.pdf
+          git commit -m "WORKFLOW_COMMIT - Update PDFs [skip ci]"
+          git push
