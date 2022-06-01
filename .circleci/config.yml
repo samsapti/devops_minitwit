@@ -1,8 +1,5 @@
 version: 2.1
 
-orbs:
-  gh: circleci/github-cli@2.1
-
 jobs:
   static_analysis:
     working_directory: ~/app/src
@@ -77,7 +74,7 @@ jobs:
           command: mv build/main.pdf build/report.pdf
       - run:
           name: Install GH CLI
-          command: sudo apt update && sudo apt install gh
+          command: apt update && apt install gh
       - run:
           name: Login to GH CLI
           command: gh auth login --with-token ${GITHUB_TOKEN}
@@ -107,18 +104,3 @@ workflows:
               only: /.*/
             branches:
               ignore: /.*/
-      - gh/release:
-          filters:
-            tags:
-              only: /.*/
-            branches:
-              ignore: /.*/
-          requires:
-            - build_report
-          pre-steps:
-            - run: mkdir ~/report
-            - attach_workspace:
-                at: ~/report
-          files: ~/report/build/report.pdf
-          tag: ${CIRCLE_TAG}
-          title: Report release
