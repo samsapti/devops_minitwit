@@ -76,7 +76,7 @@ jobs:
             pdflatex -output-directory build -interaction nonstopmode main.tex || true
             mv build/main.pdf build/report.pdf
       - persist_to_workspace:
-          root: ~/report
+          root: ~/app/report
           paths:
             - ./build
 
