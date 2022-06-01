@@ -75,10 +75,10 @@ jobs:
             mkdir build
             pdflatex -output-directory build -interaction nonstopmode main.tex || true
             mv build/main.pdf build/report.pdf
-      - gh/release:
-          files: ./report/build/report.pdf
-          tag: ${CIRCLE_TAG}
-          title: Report release
+      - persist_to_workspace:
+          root: ~/report
+          paths:
+            - ./build
 
 workflows:
   deploy-workflow:
@@ -102,3 +102,15 @@ workflows:
               only: /.*/
             branches:
               ignore: /.*/
+      - gh/release:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: /.*/
+          pre-steps:
+            - attach_workspace:
+                at: ~/report
+          files: ~/report/build/report.pdf
+          tag: ${CIRCLE_TAG}
+          title: Report release
