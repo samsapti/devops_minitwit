@@ -100,9 +100,8 @@ workflows:
               ignore: /.*/
       - gh/release:
           filters:
-            branches:
-              tags:
-                only: /.*/
+            tags:
+              only: /.*/
           requires:
             - build_report
           files: ./report/build/report.pdf
