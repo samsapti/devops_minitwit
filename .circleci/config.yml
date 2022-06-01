@@ -78,7 +78,7 @@ jobs:
       - persist_to_workspace:
           root: ~/app/report
           paths:
-            - ./build
+            - ~/app/report/build
 
 workflows:
   deploy-workflow:
@@ -111,9 +111,9 @@ workflows:
           requires:
             - build_report
           pre-steps:
-            - run: mkdir /report
+            - run: mkdir ~/report
             - attach_workspace:
-                at: /report
-          files: /report/build/report.pdf
+                at: ~/report
+          files: ~/report/build/report.pdf
           tag: ${CIRCLE_TAG}
           title: Report release
