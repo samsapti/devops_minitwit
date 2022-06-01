@@ -16,7 +16,7 @@ In our continuous integration chain, we use different tools and metrics to ensur
     \item For static analysis we use a tool called \texttt{golangci-lint}, which runs the following linters in parallel:
     \begin{itemize}
         \item \texttt{gosec} is a tool to enhance security by inspecting the source code for vulnerabilities, by scanning the Go AST.
-        \item \texttt{gofmt} is a tool which formats the Go source code, such that for example, unnecessary parentheses are removed etc. basically functioning as a beautifier (it just runs \texttt{gofmt} command)
+        \item \texttt{gofmt} is a tool which formats the Go source code, such that for example, unnecessary parentheses are removed.
         \item \texttt{staticcheck} is a tool which, by using static analysis, is able to locate bugs and find performance issues, while offering simplification and enforcement of style rules.
         \item \texttt{gosimple} is a tool, with the purpose of simplifying source code.
         \item \texttt{unused} is a tool to ensure that unused variables, functions constants and types are removed.
@@ -30,12 +30,6 @@ In our continuous integration chain, we use different tools and metrics to ensur
         \item \texttt{Portability} - Our code should be as portable as possible. This means, that we should develop with the API in mind, such that we avoid platform specific solutions.
         \item \texttt{Reusability} - Code should be reusable, to avoid code duplicated or redundant code. 
         \item \texttt{Technical debt} should be minimized as much as possible. It is unrealistic to avoid completely, but steps should always be made to combat it. 
-        
-        %\item Maintainability - We have written our code in a way that makes it easy to read. For example, instead of doing fancy one-liners, we usually write out the code in longer form for better readability, and we also use easy to understand variable names. This makes the code less messy and easier to maintain.
-        %\item Testability - We didn't have time to translate the Python unit tests, that we were provided, to Go, so we don't have any tests for our code. However, when pushing code to the main branch, CircleCI builds our Docker images, so one could argue that the build is a form of testing.
-        %\item Portability - It is hard to measure since we have not made use of unit testing or integration testing. What we have to state that our code is somewhat portable is the fact that we use static analysis tools to ensure coding standards and clean conventions.
-        %\item Reusability - We have reusable code within our application and have made use of reusable code rather than redundant code. An example is our controller, which has methods used by both our API and app.
-        %\item During the course of developing and maintaining Minitwit, we tried to minimize our accrued technical debt. To combat it, we kept a backlog of things that we're deployed, but not yet satisfactory.
     \end{itemize}    
 \end{itemize}
 
@@ -43,13 +37,13 @@ The final step of our CI/CD chain is that we have a Discord bot set up that publ
 
 \subsection{Repositories}
 %\textcolor{red}{Organization of your repositor(ies). That is, either the structure of of mono-repository or organization of artifacts across repositories. In essence, it has to be be clear what is stored where and why.}
-We chose to use a mono-repository structure hosted on a single GitHub repository. The repository  includes all of our code for both the API as well as the MiniTwit application. 
+We chose to use a mono-repository structure hosted on a single GitHub repository. The repository  includes all of our code for both the API as well as the MiniTwit web-application. 
 We chose to keep the API and application in the same repository since they are both quite small systems, and because they share several dependencies and functions.
 
 
 \subsection{Branching strategy}
-Our branching strategy is based on the trunk-based development process.
-We have a main branch which, contains a state of our application that works. Whenever we want to make a new feature or fix a bug, we create a new branch from our main branch, where we work on the feature. When the work is done, we make a pull request from the work branch into our main branch which then needs to be approved by another team member before it gets merged into main.
+Our branching strategy is trunk-based development.
+We have a main branch which, contains a working state of our application. Whenever we want to make a new feature or fix a bug, we create a new branch from our main branch, where we work on the feature. When the work is done, we make a pull request from the work branch into our main branch which then needs to be approved by another team member before it gets merged into main.
 
 \subsection{Development process}
 %\textcolor{red}{Applied development process and tools supporting it. For example, how did you use issues, Kanban boards, etc. to organize open tasks}
@@ -70,7 +64,7 @@ We have chosen to track the following three metrics for our app and API
     \item The average duration of requests
 \end{itemize}
 
-To visualize our data, we use the tool Grafana, which uses the Prometheus data and visualizes it through a web endpoint. The Grafana dashboard can be seen at \ref{appendix:dashboard}. The Dashboard makes a nice visual of the chosen metrics and generates an easy overview.
+To visualize our data, we use the tool Grafana, which uses the Prometheus data and visualizes it through a web endpoint. The Grafana dashboard can be seen at \ref{appendix:dashboard}.
 
 \subsection{Logging}
 %\textcolor{red}{What do you log in your systems and how do you aggregate logs?}
@@ -85,11 +79,9 @@ We use the ELK stack for logging. The information we log includes:
 The log data is read directly from the directory that contains the logs from the Docker containers, which is mounted as a Docker volume on the Filebeat container. Filebeat then parses the data and sends it to Elasticsearch over an internal network connection. The web-frontend we use to look at our logs is Kibana.
 
 
-
-
 \subsection{Security}
 %\textcolor{red}{Brief results of the security assessment.}
-To estimate the security standing of our system, we sat down as a team and completed a security assessment. We started by doing a risk identification. We concluded that our assets include the user data stored on our servers as well as the web application with almost constant uptime. The related threat sources would thus be unauthorized access to sensitive data, and infrastructure provider downtime that would make our service unavailable. We visualized these risk factors in a risk matrix (see figure \ref{fig:Risk_matrix}) based on their impact and how likely they are to happen.
+To estimate the security standing of our system, we sat down as a team and completed a security assessment. We started by doing a risk identification. We concluded that our assets include the user data stored on our servers as well as a web server with almost constant uptime. The related threat sources would thus be unauthorized access to sensitive data, and infrastructure provider downtime that would make our service unavailable. We visualized these risk factors in a risk matrix (see figure \ref{fig:Risk_matrix}) based on their impact and how likely they are to happen.
 
 \begin{figure}[H]
     \centering
@@ -103,12 +95,9 @@ The most crucial risk of provider downtime is DigitalOcean, since we host our ap
 In relation to keeping sensitive user data safe, we identified multiple possible risk scenarios.
 The first risk is a physical server attack on DigitalOcean. Since we cannot improve security on their end, the best course of action is to have another provider setup ready. Our personal risk factors are leaked login credentials or an SSH key leak. To improve the security, we have implemented two-factor authentication.
 
-
-%We have a private ssh key on a physical usb drive that is hacker proof
-
 After pentesting our system with Zaproxy, we found out that we had a number of vulnerabilities, although none of them were too high of a risk. 
 One of the medium-risk issues that Zaproxy found was regarding some missing HTTP headers. We chose to fix this since it was a larger risk than the others. Figure \ref{fig:Zaproxy_Updated} shows the results from running Zaproxy on the newest version of our application. We unfortunately did not have time to fix the remaining issues, however, the risks proposed by Zaproxy would be an obvious next thing to do in regards to improving the security.
-
+\newline
 \begin{figure}[H]
     \centering
     \includegraphics[scale=0.50]{images/security_risks_updated.png}
@@ -118,5 +107,4 @@ One of the medium-risk issues that Zaproxy found was regarding some missing HTTP
 
 
 \subsection{Scaling \& Load balancing}
-
-We have attempted to set up horizontal scaling via Docker Swarm, however we did not succeed in getting it to work completely. Our Swarm setup, which is currently on the \texttt{feature/swarm} git branch, can only run the MiniTwit application itself, so no monitoring nor logging. We believe this is due to issues with persistent storage, which is complicated to implement in a cluster setup.
+We have attempted to set up horizontal scaling via Docker Swarm, however we did not succeed in integrating it completely. Our Swarm setup, which is currently on the \texttt{feature/swarm} git branch, can only run the MiniTwit application itself, so no monitoring nor logging. We believe this is due to issues with persistent storage, which is complicated to implement in a cluster setup.

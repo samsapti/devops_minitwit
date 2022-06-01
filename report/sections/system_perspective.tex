@@ -7,8 +7,7 @@ To develop our version of MiniTwit, we have chosen to use the programming langua
 \subsection{Architecture}
 
 \subsubsection{Components and connectors}
-% This viewpoint is concerned with the run-time functionality of the system
-Our system is structured such that the entire system is containerized using Docker and then the container is deployed, which enables the user to access and use the application.
+Our system is containerized using docker and deployed with DigitalOcean, which enables the user to access and use the application.
 Our API and app are connected to the database container. We use Caddy as our reverse proxy. Caddy receives traffic and redirects it to either the API, app, Grafana, or Kibana, using the same ports for all four services.
 
 \begin{figure}[H]
@@ -19,10 +18,6 @@ Our API and app are connected to the database container. We use Caddy as our rev
 \end{figure}
 
 \subsubsection{Module Viewpoints}
- % This architectural viewpoint is concerned with how the functionality is mapped
- % to the units of implementation. It visualizes the static view of the systems
- % architecture by showing the elements that comprise the system and their relationships.
-
 \subsubsection*{Packages}
 
 The system consists of three packages: \textit{src}, \textit{CircleCI} and \textit{Docker}. The packages and their dependencies are visualized in figure \ref{fig:packages}.
@@ -33,7 +28,7 @@ The \textit{monitoring} package contains two things. First and foremost, the mon
 The Prometheus Promauto functionality is used to define what metrics to track. We chose it because it sets up an easily extendable code structure.
 Secondly, the function MiddlewareMetrics starts a timer and measures CPU usage before serving the http request it is handling. After having served the HTTP request it increments the request count and records the duration of the HTTP request. 
 
-The \textit{controller} package will not be discussed in depth, since its functionality, in its entirety, is simply to define the structs for the database, to connect to the database, query a users ID from a username and hash passwords.
+The \textit{controller} simply defines the structs for the database, to connect to the database, query a users ID from a username and hash passwords.
 \newline
 For a full overview of the entire \textit{src} package, see appendix \ref{appendix:CCDiagram}
 
@@ -49,9 +44,9 @@ Finally, the \textit{CircleCI} package contains the functionality for CI/CD. It 
     \label{fig:packages}
 \end{figure}
 
-The following subsections will go in-depth with the \textit{src} package, namely its \textit{API} and \textit{App} packages, as they are paramount to system interaction. Below, in figure \ref{fig:src}, is an overview of the package. As implied at the start of the section, \textit{App} and \textit{API} handle similar actions, but do not have any direct dependencies with one another. 
 
-%\textcolor{red}{SOME TEXT LEADING UP TO SRC IN DEPTH}
+\subsubsection*{Src}
+The overview of our \textit{src} package is seen in figure \ref{fig:src} which visualizes the dependencies of our \textit{API} and \textit{App}.
 
 \begin{figure}[H]
     \centering
@@ -59,6 +54,8 @@ The following subsections will go in-depth with the \textit{src} package, namely
     \caption{The diagram shows the dependencies between the API and app in the \textit{src} package.}
     \label{fig:src}
 \end{figure}
+
+\newpage
 
 \subsubsection*{Class overview of App}
 
@@ -80,18 +77,29 @@ Our app exposes HTTP-endpoints for the following use cases:
 
 \begin{itemize}
     \item \texttt{/} $\rightarrow$ If user logged in, loading personal timeline, if not logged in, redirecting to \texttt{/public}
+    \vspace{0.5em}
     \item \texttt{/favicon.ico} $\rightarrow$ prevents the app from thinking favicon.ico is a user
+    \vspace{0.5em}
     \item \texttt{/public} $\rightarrow$ loads the public timeline
+    \vspace{0.5em}
     \item \texttt{/add\_message} $\rightarrow$ posting message on the web service
+    \vspace{0.5em}
     \item \texttt{/login} $\rightarrow$ login opportunity for users
+    \vspace{0.5em}
     \item \texttt{/register} $\rightarrow$ registration opportunity for users
+    \vspace{0.5em}
     \item \texttt{/logout} $\rightarrow$ opportunity to log out of the web service
+    \vspace{0.5em}
     \item \texttt{/\{username\}} $\rightarrow$ load the timeline of the given user
+    \vspace{0.5em}
     \item \texttt{/\{username\}/follow} $\rightarrow$ logged in user wanting to follow user called  \texttt{\{username\}}
+    \vspace{0.5em}
     \item \texttt{/\{username\}/unfollow} $\rightarrow$ logged in user wanting to unfollow user called\\ \texttt{\{username\}}
 \end{itemize}
 
 In order to display data in the front-end, we make use of the struct \texttt{TimelineData}, which acts as a container for the data fetched from the database. The struct \texttt{SessionData} is used to keep track of the data associated with the current session in the application. In other words, this is the struct whose field, \texttt{Flashes}, is injected into the frontend, such that nothing is directly exposed to the front-end. This hides the back-end functionality, improving security of the site as well as keeping the code less coupled, such that changes in one part do not break others. To load the data on the frontend, we use the Go package \textit{Go/Template} which allows for Go code to be loaded directly in the HTML without the need for any JavaScript.
+
+\newpage
 
 \subsubsection*{Class overview of API}
 The API makes use of HTTP requests by exposing HTTP-endpoints in order for the internal logic to handle the HTTP requests. Every endpoint has been kept according to the initial Python application.  
@@ -106,6 +114,8 @@ Our API has exposed endpoints for the following HTTP requests:
 
 The API is meant to be run within a simulator environment, which acts as if the API is being accessed by real users. In our case, the API has failed quite a lot (around 90-95\%), which is due to downtime of our database (4 days). We are suspecting that a lot of the users were registered during these days and therefore we had a lot of errors. The errors arising from \textit{user does not exist} has also caused the problem that it camouflaged any downstream errors. Due to the fact that it does not follow good DevOps principles to just register users (by using the "username" property in some endpoints and therefore allowing null-values in the database, which is not a maintainable solution) when they did not exist, we were unable to find a way of resolving this in a proper manner.
 
+\newpage
+
 \subsubsection{Deployment}
 The deployment diagram below (see figure \ref{fig:deployment_diagram}) visualizes the dependencies between software containers, stored in Docker containers, and the physical hardware that runs it. The system is run on a virtual machine hosted by DigitalOcean. The virtual machine runs Ubuntu 20.04 LTS and the OS runs the system in a Docker daemon that contains individual Docker containers and Docker networks. 
 \newline
@@ -117,6 +127,8 @@ The two Docker networks are separated into logical units. The first unit is the 
     \caption{The deployment diagram highlights how the software elements are mapped to the hardware that it is hosted on.}
     \label{fig:deployment_diagram}
 \end{figure}
+
+\newpage
 
 \subsection{Dependencies}
 \begin{itemize}
@@ -130,7 +142,7 @@ The two Docker networks are separated into logical units. The first unit is the 
     \vspace{0.5em}
     \item CircleCI: A platform for continuous integration and deployment.
     \vspace{0.5em}
-    \item PostgreSQL: The relational database system we use for our database. \vspace{0.5em}
+    \item PostgreSQL: The relational database system \vspace{0.5em}
     \item Gorilla/mux: A http request router and dispatcher which we use for matching incoming request to their respective handlers. 
     \vspace{0.5em}
     \item GORM: Go library used for creation of relational database schema and migration, as well as providing CRUD operations. 
@@ -142,7 +154,7 @@ The two Docker networks are separated into logical units. The first unit is the 
     \item ELK: A Docker Image providing the following services: 
     \vspace{0.5em}
     \begin{itemize}
-        \item Elasticsearch: This has a wide variety of uses, we use it for index log data.
+        \item Elasticsearch: used for its index log data.
         \vspace{0.5em}
         \item Filebeat: Collects logging data and forwards it to Elasticsearch.
         \vspace{0.5em}
