@@ -112,7 +112,7 @@ workflows:
             - build_report
           pre-steps:
             - attach_workspace:
-                at: ~/report
-          files: ~/report/build/report.pdf
+                at: /report
+          files: /report/build/report.pdf
           tag: ${CIRCLE_TAG}
           title: Report release
