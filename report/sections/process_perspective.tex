@@ -2,7 +2,7 @@
 
 \subsection{Team}
 To organize our team, we make a weekly plan each Tuesday. The plan depends on the current hangups of the project and the new tasks of the week. \newline
-We split up the team in appropriately sized subgroups, depending on the complexity of the task we are taking on.
+We split up the team in subgroups, depending on the complexity of the task we are taking on.
 Each subgroup starts their work immediately and coordinates freely until next week. During the week, we use our Discord server to keep each other updated on progress with the tasks.
 
 
@@ -16,9 +16,9 @@ In our continuous integration chain, we use different tools and metrics to ensur
     \item For static analysis we use a tool called \texttt{golangci-lint}, which runs the following linters in parallel:
     \begin{itemize}
         \item \texttt{gosec} is a tool to enhance security by inspecting the source code for vulnerabilities, by scanning the Go AST.
-        \item \texttt{gofmt} is a tool which formats the Go source code, such that for example, unnecessary parenthesis are removed etc. basically functioning as a beautifier (it just runs \texttt{gofmt} command)
+        \item \texttt{gofmt} is a tool which formats the Go source code, such that for example, unnecessary parentheses are removed etc. basically functioning as a beautifier (it just runs \texttt{gofmt} command)
         \item \texttt{staticcheck} is a tool which, by using static analysis, is able to locate bugs and find performance issues, while offering simplification and enforcement of style rules.
-        \item \texttt{gosimple} is a tool, whose purpose solely is to simplify the source code.
+        \item \texttt{gosimple} is a tool, with the purpose of simplifying source code.
         \item \texttt{unused} is a tool to ensure that unused variables, functions constants and types are removed.
         \item \texttt{typecheck} is a tool, which ensures that our variables are of the correct types.
     \end{itemize}
@@ -39,7 +39,7 @@ In our continuous integration chain, we use different tools and metrics to ensur
     \end{itemize}    
 \end{itemize}
 
-The final step of our CI/CD chain is that we have a Discord bot set up that publishes a message to our Discord server, whenever there is a new commit to the repository. This way, all developers are encouraged to stay up to date with the code base.
+The final step of our CI/CD chain is that we have a Discord bot set up that publishes a message to our Discord server, whenever there is a new commit to the repository. This way, all developers are encouraged to inspect commits and stay up to date with the code base.
 
 \subsection{Repositories}
 %\textcolor{red}{Organization of your repositor(ies). That is, either the structure of of mono-repository or organization of artifacts across repositories. In essence, it has to be be clear what is stored where and why.}
@@ -49,11 +49,11 @@ We chose to keep the API and application in the same repository since they are b
 
 \subsection{Branching strategy}
 Our branching strategy is based on the trunk-based development process.
-We have a main branch which contains a state of our application that works. Whenever we want to make a new feature or fix a bug, we create a new branch from our main branch where we work on the feature. When the work is done, we make a pull request from the work branch into our main branch which then needs to be approved by another team member before it gets merged into main.
+We have a main branch which, contains a state of our application that works. Whenever we want to make a new feature or fix a bug, we create a new branch from our main branch, where we work on the feature. When the work is done, we make a pull request from the work branch into our main branch which then needs to be approved by another team member before it gets merged into main.
 
 \subsection{Development process}
 %\textcolor{red}{Applied development process and tools supporting it. For example, how did you use issues, Kanban boards, etc. to organize open tasks}
-We add issues to our Github, following the courses weekly additions to the project. All individual issues are added to a To Do List, that tracks their completion. This is to create a quick overview of our progress with the project and keep a backlog.
+We add issues to our Github, following the courses weekly additions to the project. All individual issues are added to a To Do List, that tracks their completion. This is to create a quick overview of our progress with the project and maintain a backlog.
 For weekly tasks, we post a message on our discord, that tracks who is responsible for what.
 
 
@@ -63,16 +63,14 @@ For weekly tasks, we post a message on our discord, that tracks who is responsib
 To monitor our application, we use the tool Prometheus that monitors the metrics we want to track. 
 We use the package PromAuto to setup the metrics we want to track with Prometheus. The constructors in PromAuto, in contrast to the Prometheus package, returns \textit{Collectors} that are already registered to a registry. It creates functions on 2 levels: top level functions, that return \textit{Collectors} registered to the global registry, and Factory type methods that returns \textit{Collectors} that are registered with the constructor, that the factory were created with.
 \newline
-We have chosen to track three metrics. We track them for our App as well as our API. The chosen metrics are
+We have chosen to track the following three metrics for our app and API
 \begin{itemize}
     \item The CPU load
     \item The total number of processed HTTP requests
     \item The average duration of requests
 \end{itemize}
 
-To visualize our data, we use the tool Grafana which uses the Prometheus data and visualizes it to us through a web endpoint.
-
-The Grafana dashboard can be seen at \ref{appendix:dashboard}. The Dashboard makes a nice visual of the chosen metrics and generates an easy overview.
+To visualize our data, we use the tool Grafana, which uses the Prometheus data and visualizes it through a web endpoint. The Grafana dashboard can be seen at \ref{appendix:dashboard}. The Dashboard makes a nice visual of the chosen metrics and generates an easy overview.
 
 \subsection{Logging}
 %\textcolor{red}{What do you log in your systems and how do you aggregate logs?}
@@ -102,7 +100,7 @@ To estimate the security standing of our system, we sat down as a team and compl
 
 The most crucial risk of provider downtime is DigitalOcean, since we host our application with them, which is why we assess downtime on their end as much more crucial than downtime on Github or CircleCI.
 \newline
-In relation to keeping sensitive user data safe, we identified multiple possible risks scenarios.
+In relation to keeping sensitive user data safe, we identified multiple possible risk scenarios.
 The first risk is a physical server attack on DigitalOcean. Since we cannot improve security on their end, the best course of action is to have another provider setup ready. Our personal risk factors are leaked login credentials or an SSH key leak. To improve the security, we have implemented two-factor authentication.
 
 
@@ -110,8 +108,6 @@ The first risk is a physical server attack on DigitalOcean. Since we cannot impr
 
 After pentesting our system with Zaproxy, we found out that we had a number of vulnerabilities, although none of them were too high of a risk. 
 One of the medium-risk issues that Zaproxy found was regarding some missing HTTP headers. We chose to fix this since it was a larger risk than the others. Figure \ref{fig:Zaproxy_Updated} shows the results from running Zaproxy on the newest version of our application. We unfortunately did not have time to fix the remaining issues, however, the risks proposed by Zaproxy would be an obvious next thing to do in regards to improving the security.
-
-See figure \ref{fig:Zaproxy_Updated} for the results.
 
 \begin{figure}[H]
     \centering

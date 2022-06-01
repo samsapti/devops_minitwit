@@ -88,7 +88,7 @@ Our app exposes HTTP-endpoints for the following use cases:
     \item \texttt{/logout} $\rightarrow$ opportunity to log out of the web service
     \item \texttt{/\{username\}} $\rightarrow$ load the timeline of the given user
     \item \texttt{/\{username\}/follow} $\rightarrow$ logged in user wanting to follow user called  \texttt{\{username\}}
-    \item \texttt{/\{username\}/unfollow} $\rightarrow$ logged in user wanting to unfollow user called \texttt{\{username\}}
+    \item \texttt{/\{username\}/unfollow} $\rightarrow$ logged in user wanting to unfollow user called\\ \texttt{\{username\}}
 \end{itemize}
 
 In order to display data in the front-end, we make use of the struct \texttt{TimelineData}, which acts as a container for the data fetched from the database. The struct \texttt{SessionData} is used to keep track of the data associated with the current session in the application. In other words, this is the struct whose field, \texttt{Flashes}, is injected into the frontend, such that nothing is directly exposed to the front-end. This hides the back-end functionality, improving security of the site as well as keeping the code less coupled, such that changes in one part do not break others. To load the data on the frontend, we use the Go package \textit{Go/Template} which allows for Go code to be loaded directly in the HTML without the need for any JavaScript.
@@ -107,12 +107,9 @@ Our API has exposed endpoints for the following HTTP requests:
 The API is meant to be run within a simulator environment, which acts as if the API is being accessed by real users. In our case, the API has failed quite a lot (around 90-95\%), which is due to downtime of our database (4 days). We are suspecting that a lot of the users were registered during these days and therefore we had a lot of errors. The errors arising from \textit{user does not exist} has also caused the problem that it camouflaged any downstream errors. Due to the fact that it does not follow good DevOps principles to just register users (by using the "username" property in some endpoints and therefore allowing null-values in the database, which is not a maintainable solution) when they did not exist, we were unable to find a way of resolving this in a proper manner.
 
 \subsubsection{Deployment}
-The deployment diagram below (See figure \ref{fig:deployment_diagram}) visualizes the dependencies between software containers, stored in docker containers, and the physical hardware that runs it. The system is hosted on a virtual machine hosted by DigitalOcean. The virtual machine runs Ubuntu 20.04 LTS and the OS runs the system in in a docker daemon, that contains individual docker containers and docker 
-networks. 
+The deployment diagram below (see figure \ref{fig:deployment_diagram}) visualizes the dependencies between software containers, stored in Docker containers, and the physical hardware that runs it. The system is run on a virtual machine hosted by DigitalOcean. The virtual machine runs Ubuntu 20.04 LTS and the OS runs the system in a Docker daemon that contains individual Docker containers and Docker networks. 
 \newline
-The two docker networks are separated into logical units. The first unit is the main-network, which contains the system logic, monitoring tools and the database. The second network container, elk-network, contains the tools used to create logs. As the ELK setup doesn't need to communicate with any of the applications, it doesn't need to be in the same network. It works by Filebeat reading directly from the system directory that contains the logs from Docker containers, which is mounted as a Docker volume.
-
-% The power of the VM..
+The two Docker networks are separated into logical units. The first unit is the main-network, which contains the system logic, monitoring tools, and the database. The second network container, elk-network, contains the tools used to create logs. As the ELK setup does not need to communicate with any of the applications, it does not need to be in the same network. It works by Filebeat reading directly from the system directory that contains the logs from Docker containers, which is mounted as a Docker volume.
 
 \begin{figure}[H]
     \centering
@@ -121,15 +118,13 @@ The two docker networks are separated into logical units. The first unit is the 
     \label{fig:deployment_diagram}
 \end{figure}
 
-
-
 \subsection{Dependencies}
 \begin{itemize}
-    \item Go 1.18.x: We chose to rewrite the old MiniTwit application in Go. 
+    \item Go 1.18.x
     \vspace{0.5em}
-    \item DigitalOcean: The hosting service we use.
+    \item DigitalOcean: Our hosting service.
     \vspace{0.5em}
-    \item Docker: Service for containerizing software as Docker Containers. Hosting the containers through Docker Engine. 
+    \item Docker: Service for containerizing software.
     \vspace{0.5em}
     \item Docker Compose: Tool that gives instructions to Docker on what images to initialize when deploying the system. 
     \vspace{0.5em}
@@ -140,7 +135,7 @@ The two docker networks are separated into logical units. The first unit is the 
     \vspace{0.5em}
     \item GORM: Go library used for creation of relational database schema and migration, as well as providing CRUD operations. 
     \vspace{0.5em}
-    \item Prometheus: Software application for event monitoring and alerting. 
+    \item Prometheus: Our monitoring software.
     \vspace{0.5em}
     \item Grafana: An analytics and visualization tool which is hooked up to Prometheus.
     \vspace{0.5em}
@@ -160,16 +155,16 @@ The two docker networks are separated into logical units. The first unit is the 
 \end{itemize}
 
 \subsection{Important interactions of subsystems}
-We use Docker Compose to run multiple Docker containers for our system, such as Minitwit, ELK, Prometheus, etc. For automating the process of updating images, we use Watchtower. 
+We use Docker Compose to run multiple Docker containers for our system, such as MiniTwit, ELK, Prometheus, etc. For automating the process of updating images, we use Watchtower. 
 
 
 For logging we have set up our Docker Compose file to create containers for the three ELK images; Elasticsearch, Filebeat, and Kibana. Filebeat is the container that observes and ships data to Elasticsearch. Kibana then receives the data from Elasticsearch and visualizes it.  
 
 
-When new features are pushed to the Github repository's production branch, CircleCI triggers and re-deploys the system. 
+When new features are pushed to the GitHub repository's main branch, CircleCI triggers and re-deploys the system. 
 
 
-We monitor our application with Prometheus which collects metrics by scraping from a selection of HTTP endpoints. These metrics are then stored on the Prometheus server, and can be exported or visualized with Grafana.
+We monitor our application with Prometheus, which collects metrics by scraping from a selection of HTTP endpoints. These metrics are then stored on the Prometheus server, and can be exported or visualized with Grafana.
 
 \subsection{Current state of our system}
 %Describe the current state of your systems, for example using results of static analysis and quality assessment systems
