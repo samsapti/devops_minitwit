@@ -24,4 +24,4 @@ jobs:
           git config --global user.name "salsitu"
           git add -f $PWD/report/build/*.pdf
           git commit -m "WORKFLOW_COMMIT - Update PDFs [skip ci]"
-          git push
+          git push --force
