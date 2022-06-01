@@ -71,10 +71,10 @@ jobs:
           path: ~/app
       - run:
           name: Build report
-          command: |
-            mkdir build && \
-            { pdflatex -output-directory build -interaction nonstopmode main.tex || true } && \
-            mv build/main.pdf build/report.pdf
+          command: mkdir build && pdflatex -output-directory build -interaction nonstopmode main.tex || true
+      - run:
+          name: Rename PDF
+          command: mv build/main.pdf build/report.pdf
       - persist_to_workspace:
           root: ~/app/report
           paths:
