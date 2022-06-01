@@ -75,10 +75,15 @@ jobs:
       - run:
           name: Rename PDF
           command: mv build/main.pdf build/report.pdf
-      - persist_to_workspace:
-          root: ~/app/report
-          paths:
-            - build
+      - run:
+          name: Install GH CLI
+          command: sudo apt update && sudo apt install gh
+      - run:
+          name: Login to GH CLI
+          command: gh auth login --with-token ${GITHUB_TOKEN}
+      - run:
+          name: Make GH release
+          command: gh release create ${CIRCLE_TAG} build/report.pdf --generate-notes
 
 workflows:
   deploy-workflow:
