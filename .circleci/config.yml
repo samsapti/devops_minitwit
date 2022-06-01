@@ -65,16 +65,13 @@ jobs:
   build_report:
     working_directory: ~/app/report
     docker:
-     - image: blang/latex:ubuntu
+     - image: danteev/texlive
     steps:
       - checkout:
           path: ~/app
       - run:
           name: Build report
-          command: mkdir build && pdflatex -output-directory build -interaction nonstopmode main.tex || true
-      - run:
-          name: Rename PDF
-          command: mv build/main.pdf build/report.pdf
+          command: mkdir build && latexmk -outdir=build -pdf main.tex || true
       - persist_to_workspace:
           root: ~/app/report
           paths:
@@ -114,6 +111,7 @@ workflows:
             - run: mkdir ~/report
             - attach_workspace:
                 at: ~/report
-          files: ~/report/build/report.pdf
+            - run: cp ~/report/build/main.pdf ~/report.pdf
+          files: ~/report.pdf
           tag: ${CIRCLE_TAG}
           title: Report release
