@@ -108,6 +108,8 @@ workflows:
               only: /.*/
             branches:
               ignore: /.*/
+          requires:
+            - build_report
           pre-steps:
             - attach_workspace:
                 at: ~/report
