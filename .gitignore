@@ -33,6 +33,7 @@ go.work
 .env
 filebeat.yml
 report/*.fls
+report/**/*.aux
 report/*.log
 report/*.toc
 report/*.pdf

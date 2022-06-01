@@ -1,28 +1,20 @@
 \section{System's Perspective}
 
 \subsection{Design}
-
-To develop our version of MiniTwit, we have chosen to use the programming language Go. We are using a toolkit called Gorilla that includes a number of different packages that each help with different things regarding web development. We use the library called GORM to interact with our PostgreSQL database instead of writing our own SQL queries. We use Prometheus to monitor our application - and Grafana to give us a dashboard with the Prometheus data. To log things like error messages, we use the ELK stack.
-
-\textcolor{red}{UML diagram????}
-
-% Load balancer distributes work to docker slaves..
-
-% Måske: Reliability, availability, scalability
-
+To develop our version of MiniTwit, we have chosen to use the programming language Go. We are using a toolkit called Gorilla that includes a number of different packages, that each help with different things regarding web development. We use the library called GORM to interact with our PostgreSQL database instead of writing our own SQL queries. We use Prometheus to monitor our application - and Grafana to give us a dashboard with the Prometheus data. To log things like error messages, we use the ELK stack.
 
 
 \subsection{Architecture}
 
 \subsubsection{Components and connectors}
 % This viewpoint is concerned with the run-time functionality of the system
-Our system is structured such that the entire system is containerized using docker and then the container is deployed, which enables the user to access and use the application.
-Our API and app are connected to the database container. Caddy is our reverse proxy. Caddy receives traffic and redirects it to either the API, app, Grafana or Kibana, using the same ports for all 4 services.
-    
+Our system is structured such that the entire system is containerized using Docker and then the container is deployed, which enables the user to access and use the application.
+Our API and app are connected to the database container. We use Caddy as our reverse proxy. Caddy receives traffic and redirects it to either the API, app, Grafana, or Kibana, using the same ports for all four services.
+
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.24]{images/C&C_diagram.png}
-    \caption{Diagram showing an overview of our components and connectors}
+    \includegraphics[scale=0.40]{images/C&C_diagram.png}
+    \caption{Diagram showing an overview of our components and connectors.}
     \label{fig:CCDiagram}
 \end{figure}
 
@@ -33,22 +25,22 @@ Our API and app are connected to the database container. Caddy is our reverse pr
 
 \subsubsection*{Packages}
 
-The system consists of three packages: src, CircleCI and Docker. The packages and their dependencies are visualized in figure \ref{fig:src}.
+The system consists of three packages: \textit{src}, \textit{CircleCI} and \textit{Docker}. The packages and their dependencies are visualized in figure \ref{fig:packages}.
 
-The Src package contains the system logic relevant to user actions in the app and API. The app handles UI inputs from the Minitwit website, whereas the API handles URL calls through HTTP. It also contains the monitoring and the controller packages.
+The \textit{src} package contains the system logic relevant to user actions in the app and API. The app handles user inputs from the MiniTwit website, whereas the API handles HTTP requests through exposed endpoints. \textit{src} also contains the monitoring and the controller packages.
 
-The monitoring package contains two things. First and foremost, the monitoring infrastructure is set up with the Prometheus package.
+The \textit{monitoring} package contains two things. First and foremost, the monitoring infrastructure is set up with the Prometheus package.
 The Prometheus Promauto functionality is used to define what metrics to track. We chose it because it sets up an easily extendable code structure.
-Secondly, the method MiddlewareMetrics starts a timer and measures CPU usage before serving the http request it is handling. After having served the HTTP request it increments the request count and records the duration of the HTTP request. The metrics we monitor will be discussed in section \ref{Monitoring}.
+Secondly, the function MiddlewareMetrics starts a timer and measures CPU usage before serving the http request it is handling. After having served the HTTP request it increments the request count and records the duration of the HTTP request. 
 
-The controller package will not be discussed in depth, since its functionality, in its entirety, is simply to define the structs for the database, to connect to the database, query a users ID from a username and hash passwords.
+The \textit{controller} package will not be discussed in depth, since its functionality, in its entirety, is simply to define the structs for the database, to connect to the database, query a users ID from a username and hash passwords.
 \newline
-For a full overview of the entire Src package see appendix \ref{appendix:CCDiagram}
+For a full overview of the entire \textit{src} package, see appendix \ref{appendix:CCDiagram}
 
-The Docker package is not tied to Minitwit functionality. Its purpose is to contain the instructions for initialization of our different docker containers when we deploy the system. This means that it contains a variety of file types. Naturally, it contains the .Dockerfile for the app and API. Furthermore, it contains .yml files with launch settings for our monitoring tools, Prometheus and Grafana. The grafana directory also includes .json files that define the UI for its dashboard. Finally, the package contains a Caddyfile, that defines the reverse proxy...
+The \textit{Docker} package is not tied to MiniTwit functionality. Its purpose is to contain the instructions for initialization of our different Docker containers when we deploy the system. This means that it contains a variety of file types. Naturally, it contains the .Dockerfile for the app and API. Furthermore, it contains .yml files with launch settings for our monitoring tools. The \textit{/grafana} directory also includes .json files that define the UI for its dashboard. \newline
 These files are run at every system initialization, building the containers, based on the data carried in the package.
 
-Finally, the circleci package contains the functionality for CI/CD. It is linked to our Gitub repository, meaning that every time we merge a pull request into the MiniTwit repository's main branch, the setup in the Docker package is run. 
+Finally, the \textit{CircleCI} package contains the functionality for CI/CD. It is linked to our GitHub repository, meaning that every time we merge a pull request into the MiniTwit repository's main branch, the setup in the \textit{Docker} package is run.
 
 \begin{figure}[H]
     \centering
@@ -57,20 +49,20 @@ Finally, the circleci package contains the functionality for CI/CD. It is linked
     \label{fig:packages}
 \end{figure}
 
-The following subsections will go in-depth with the Src package, namely its API and App packages, as they are paramount to system interaction. Below, in figure \ref{fig:src}, is an overview of the package. As implied at the start of the section, the App and API handle similar actions, but do not have any direct dependencies with one another. 
+The following subsections will go in-depth with the \textit{src} package, namely its \textit{API} and \textit{App} packages, as they are paramount to system interaction. Below, in figure \ref{fig:src}, is an overview of the package. As implied at the start of the section, \textit{App} and \textit{API} handle similar actions, but do not have any direct dependencies with one another. 
 
 %\textcolor{red}{SOME TEXT LEADING UP TO SRC IN DEPTH}
 
 \begin{figure}[H]
     \centering
     \includegraphics[scale=0.75]{images/src.png}
-    \caption{The diagram shows the dependencies between the API and app in the Src package}
+    \caption{The diagram shows the dependencies between the API and app in the \textit{src} package.}
     \label{fig:src}
 \end{figure}
 
 \subsubsection*{Class overview of App}
 
-Our App class consists of the following:
+Our App consists of the following:
 
 \begin{itemize}
     \item Main.go $\rightarrow$ our back-end functionality of the application
@@ -88,32 +80,32 @@ Our app exposes HTTP-endpoints for the following use cases:
 
 \begin{itemize}
     \item \texttt{/} $\rightarrow$ If user logged in, loading personal timeline, if not logged in, redirecting to \texttt{/public}
-    \item \texttt{/favicon.ico} $\rightarrow$ does nothing really
+    \item \texttt{/favicon.ico} $\rightarrow$ prevents the app from thinking favicon.ico is a user
     \item \texttt{/public} $\rightarrow$ loads the public timeline
     \item \texttt{/add\_message} $\rightarrow$ posting message on the web service
     \item \texttt{/login} $\rightarrow$ login opportunity for users
     \item \texttt{/register} $\rightarrow$ registration opportunity for users
     \item \texttt{/logout} $\rightarrow$ opportunity to log out of the web service
     \item \texttt{/\{username\}} $\rightarrow$ load the timeline of the given user
-    \item \texttt{/\{username\}/follow} $\rightarrow$ logged in user wanting to follow user with  \texttt{\{username\}}
-    \item \texttt{/\{username\}/unfollow} $\rightarrow$ logged in user wanting to unfollow user with \texttt{\{username\}}
+    \item \texttt{/\{username\}/follow} $\rightarrow$ logged in user wanting to follow user called  \texttt{\{username\}}
+    \item \texttt{/\{username\}/unfollow} $\rightarrow$ logged in user wanting to unfollow user called \texttt{\{username\}}
 \end{itemize}
 
-In order to display data in the front-end, we make use of the struct \texttt{TimelineData}, which is basicly a container for the data fetched from the database. The struct \texttt{SessionData} is used to keep track of the data associated with the current session in the application. In other words, this is the struct, whose field, \texttt{Flashes}, is injected into the frontend, such that nothing is directly exposed to the front-end, thereby hidding the back-end functionality thus improving security of the site as well as keeping the code uncoupled such that changes in one part, does not break the other. To load the data on the frontend, we use the framework \textit{Go template} which allows for Go code to be loaded directly in the HTML without the need for javascript as middle layer.
+In order to display data in the front-end, we make use of the struct \texttt{TimelineData}, which acts as a container for the data fetched from the database. The struct \texttt{SessionData} is used to keep track of the data associated with the current session in the application. In other words, this is the struct whose field, \texttt{Flashes}, is injected into the frontend, such that nothing is directly exposed to the front-end. This hides the back-end functionality, improving security of the site as well as keeping the code less coupled, such that changes in one part do not break others. To load the data on the frontend, we use the Go package \textit{Go/Template} which allows for Go code to be loaded directly in the HTML without the need for any JavaScript.
 
 \subsubsection*{Class overview of API}
-The API makes use of HTTP requests by exposing HTTP-endpoints in order for the internal logic to handle the HTTP requests. Every end-point has been kept according to the initial python application.  
+The API makes use of HTTP requests by exposing HTTP-endpoints in order for the internal logic to handle the HTTP requests. Every endpoint has been kept according to the initial Python application.  
 Our API has exposed endpoints for the following HTTP requests:
 \begin{itemize}
     \item Registering users (POST) /api/register - if success, returns HTTP response code 204. If failing, returns HTTP response 400.
     \item Following a user (POST / GET) /api/follws/\{username\} - the method is checking if already followed (GET) and following / unfollowing (POST)  - if success, returns HTTP response code 204. If failing, returns HTTP response 404.
     \item Latest message (GET) /api/latest  - returns the ID of the latest message from the application.
-    \item Messages pr user (GET) /api/msgs/\{username\} - if success, returns HTTP response code 204. If failing, returns HTTP response 405.
+    \item Messages per user (GET) /api/msgs/\{username\} - if success, returns HTTP response code 204. If failing, returns HTTP response 405.
     \item Messages (feed) (GET) /api/msgs - if success, returns HTTP response code 204. If failing, returns HTTP response 405.
 \end{itemize}
 
-The API is meant to be run within a simulator environment, which acts as if the API is being accessed by real users. In our case, the API has failed quite a lot (around 90-95\%) but that is due to downtime on our database (4 days) and we are suspecting that a lot of the users were registered during these days and therefore we had a lot of errors. The errors arising from \textit{user does not exist} has also caused the problem that it camouflaged any errors not related to this. Due to the fact that it is not-very-DevOps-like to just register users (by using the "username" property in some endpoints and therefore allowing null-values in the database) when they did not exist, and the fact that it seemed that most of the groups we talked to had used this not-very-DevOps-like approach, we have been unable to find a way of resolving this in a proper matter.
-    
+The API is meant to be run within a simulator environment, which acts as if the API is being accessed by real users. In our case, the API has failed quite a lot (around 90-95\%), which is due to downtime of our database (4 days). We are suspecting that a lot of the users were registered during these days and therefore we had a lot of errors. The errors arising from \textit{user does not exist} has also caused the problem that it camouflaged any downstream errors. Due to the fact that it does not follow good DevOps principles to just register users (by using the "username" property in some endpoints and therefore allowing null-values in the database, which is not a maintainable solution) when they did not exist, we were unable to find a way of resolving this in a proper manner.
+
 \subsubsection{Deployment}
 The deployment diagram below (See figure \ref{fig:deployment_diagram}) visualizes the dependencies between software containers, stored in docker containers, and the physical hardware that runs it. The system is hosted on a virtual machine hosted by DigitalOcean. The virtual machine runs Ubuntu 20.04 LTS and the OS runs the system in in a docker daemon, that contains individual docker containers and docker 
 networks. 
@@ -124,8 +116,8 @@ The two docker networks are separated into logical units. The first unit is the 
 
 \begin{figure}[H]
     \centering
-    \includegraphics[scale=0.37]{deployment_diagram.png}
-    \caption{The deployment diagram highlights how the software elements are mapped to the hardware that it is hosted on}
+    \includegraphics[scale=0.37]{images/deployment_diagram.png}
+    \caption{The deployment diagram highlights how the software elements are mapped to the hardware that it is hosted on.}
     \label{fig:deployment_diagram}
 \end{figure}
 
@@ -168,21 +160,29 @@ The two docker networks are separated into logical units. The first unit is the 
 \end{itemize}
 
 \subsection{Important interactions of subsystems}
-We use Docker Compose running multiple Docker containers for our system, such as Minitwit, ELK, Prometheus, etc. For automating the process of updating images, we use Watchtower.
-\vspace{0.5em} \newline 
-For logging we have set up our Docker Compose file to create containers for the three ELK images; Elasticsearch, Filebeat, and Kibana. Filebeat is the container that observes and ships data to Elasticsearch. Kibana then receives the data from Elasticsearch and visualizes it. 
-\vspace{0.5em} \newline 
+We use Docker Compose to run multiple Docker containers for our system, such as Minitwit, ELK, Prometheus, etc. For automating the process of updating images, we use Watchtower. 
+
+
+For logging we have set up our Docker Compose file to create containers for the three ELK images; Elasticsearch, Filebeat, and Kibana. Filebeat is the container that observes and ships data to Elasticsearch. Kibana then receives the data from Elasticsearch and visualizes it.  
+
+
 When new features are pushed to the Github repository's production branch, CircleCI triggers and re-deploys the system. 
-\vspace{0.5em} \newline 
+
+
 We monitor our application with Prometheus which collects metrics by scraping from a selection of HTTP endpoints. These metrics are then stored on the Prometheus server, and can be exported or visualized with Grafana.
 
 \subsection{Current state of our system}
 %Describe the current state of your systems, for example using results of static analysis and quality assessment systems
 SecureGo notified that the .md5 hashing algorithm is weak. Our system still uses it, as it is a requirement for Gravatar URLs.
 
-
-
+At the end of development, we have judged our system according to our chosen metrics, described in section \ref{CI/CD}.
+\begin{itemize}
+    \item Maintainability - The code base has been left in a maintainable state. It is easy to navigate and understand. The packages divide the system in logical units.
+    \item Testability  - We did not manage to implement unit testing in time. However, we do static analysis on all branches and also build and deploy for each pull request to main.
+    \item Portability - The portability of the system is difficult to estimate without unit or integration testing. Again, the static analysis and clean conventions combat this somewhat, though we are not completely satisfied yet.
+    \item Reusability - We have managed to make our code reusable and avoiding redundant code. An example is our controller, which has methods used by both our API and app.
+    \item Technical debt - During the course of developing and maintaining Minitwit, we tried to minimize our accrued technical debt. The most mention-worthy debt, is that our Docker swarm is stopping our monitoring and logging from working. As such, the production branch, at the date of delivery, is not using swarm, to prioritize monitoring.  
+\end{itemize}
 
 \subsection{License compatibility}
-
 Our MiniTwit application is licensed under the AGPLv3 license. After running the tool \textit{\href{https://github.com/uw-labs/lichen}{lichen}} on our code, we found no license violations. AGPLv3 is the most copy-left license that we know of, meaning that almost all other FOSS licenses are compatible with it.
