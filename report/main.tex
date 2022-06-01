@@ -1,0 +1,96 @@
+\documentclass[12pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[danish,english]{babel}
+\usepackage{alphabeta} 
+
+\usepackage[pdftex]{graphicx}
+\graphicspath{ {images/} }
+\usepackage[top=1in, bottom=1in, left=1in, right=1in]{geometry}
+\linespread{1.06}
+\setlength{\parskip}{8pt plus2pt minus2pt}
+
+\widowpenalty 10000
+\clubpenalty 10000
+
+\newcommand{\eat}[1]{}
+\newcommand{\HRule}{\rule{\linewidth}{0.5mm}}
+
+\usepackage[official]{eurosym}
+\usepackage{pdfpages}
+\usepackage{enumitem}
+\setlist{nolistsep,noitemsep}
+\usepackage[hidelinks]{hyperref}
+\usepackage{cite}
+\usepackage{lipsum}
+\usepackage{float}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{appendix}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    urlcolor=blue,
+}
+
+\begin{document}
+
+%===========================================================
+\begin{titlepage}
+\begin{center}
+
+% Top 
+\includegraphics[width=0.55\textwidth]{ITU.jpg}~\\[2cm]
+
+
+% Title
+\HRule \\[0.4cm]
+{ \LARGE
+  \textbf{DevOps, Software Evolution and Software Maintenance, BSc - Spring 2022}\\[0.4cm]
+}
+\HRule \\[1.5cm]
+
+
+
+% Author
+\large{
+    Alexander Søndergaard - \texttt{aleso@itu.dk} \\[0.1cm]
+    Joachim Alexander Kofoed - \texttt{jkof@itu.dk} \\[0.1cm]
+    Mai Blom - \texttt{lukb@itu.dk} \\[0.1cm]
+    Markus Æbelø Faurbjerg - \texttt{mfau@itu.dk} \\[0.1cm]
+    Sam Al-Sapti - \texttt{sals@itu.dk} \\[0.1cm]
+}
+
+\vfill
+
+\textsc{\large BSDSESM1KU \\IT-University of Copenhagen}\\[0.4cm]
+
+
+% Bottom
+{\large \today}
+ 
+\end{center}
+\end{titlepage}
+\newpage
+
+%===========================================================
+\setcounter{tocdepth}{1}
+\tableofcontents
+\addtocontents{toc}{\protect\thispagestyle{empty}}
+\newpage
+\setcounter{page}{1}
+
+%===========================================================
+%===========================================================
+
+\include{sections/introduction}
+\include{sections/system_perspective}
+\include{sections/process_perspective}
+\include{sections/lessons_learned_perspective}
+\include{sections/appendix}
+
+%===========================================================
+%===========================================================
+
+\end{document}

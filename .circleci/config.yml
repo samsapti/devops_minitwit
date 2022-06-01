@@ -1,5 +1,8 @@
 version: 2.1
 
+orbs:
+  gh: circleci/github-cli@2.1
+
 jobs:
   static_analysis:
     working_directory: ~/app/src
@@ -59,6 +62,20 @@ jobs:
             docker system prune -f && \
             docker-compose up -d"
 
+  build_report:
+    working_directory: ~/app/report
+    docker:
+     - image: blang/latex:ubuntu
+    steps:
+      - checkout:
+          path: ~/app
+      - run:
+          name: Build report
+          command: |
+            mkdir build
+            pdflatex -output-directory build -interaction nonstopmode main.tex
+            mv build/main.pdf build/report.pdf
+
 workflows:
   deploy-workflow:
     jobs:
@@ -75,3 +92,18 @@ workflows:
             branches:
               only:
                 - main
+      - build_report:
+          filters:
+            tags:
+              only: /.*/
+            branches:
+              ignore: /.*/
+      - gh/release:
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - build_report
+          files: ./report/build/report.pdf
+          tag: ${CIRCLE_TAG}
+          title: Report release
