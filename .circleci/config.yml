@@ -111,6 +111,7 @@ workflows:
           requires:
             - build_report
           pre-steps:
+            - run: mkdir /report
             - attach_workspace:
                 at: /report
           files: /report/build/report.pdf
