@@ -108,10 +108,8 @@ workflows:
           requires:
             - build_report
           pre-steps:
-            - run: mkdir ~/report
             - attach_workspace:
-                at: ~/report
-            - run: cp ~/report/build/main.pdf ~/report.pdf
-          files: ~/report.pdf
+                at: /tmp/report
+          files: /tmp/report/build/report.pdf
           tag: ${CIRCLE_TAG}
           title: Report release
