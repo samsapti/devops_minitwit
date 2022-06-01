@@ -6,12 +6,12 @@ We split up the team in appropriately sized subgroups, depending on the complexi
 Each subgroup starts their work immediately and coordinates freely until next week. During the week, we use our Discord server to keep each other updated on progress with the tasks.
 
 
-\subsection{CI/CD}
+\subsection{CI/CD}\label{CI/CD}
 %\textcolor{red}{A complete description of stages and tools included in the CI/CD chains. That is, including deployment and release of your systems.}
 
 We have implemented CI/CD with CircleCI. Our CircleCI's configuration includes a list of jobs. Those jobs are: static analysis, build, deploy, and workflows.
 
-In our continuous integration chain, we use different tools to ensure the quality of our extensions to the system.
+In our continuous integration chain, we use different tools and metrics to ensure the quality of our extensions to the system.
 \begin{itemize}
     \item For static analysis we use a tool called \texttt{golangci-lint}, which runs the following linters in parallel:
     \begin{itemize}
@@ -22,19 +22,22 @@ In our continuous integration chain, we use different tools to ensure the qualit
         \item \texttt{unused} is a tool to ensure that unused variables, functions constants and types are removed.
         \item \texttt{typecheck} is a tool, which ensures that our variables are of the correct types.
     \end{itemize}
-    \item Quality assessment systems
+    \item For Quality assessment systems we have settled on a list of metrics, that serves as the standard we want to set for our system.
     \begin{itemize}
-        \item Reliability - Static analysis tools (described above) are used to ensure reliability within our system.
-        \item Maintainability - We have written our code in a way that makes it easy to read. For example, instead of doing fancy one-liners, we usually write out the code in longer form for better readability, and we also use easy to understand variable names. This makes the code less messy and easier to maintain.
-        \item Testability - We didn't have time to translate the Python unit tests, that we were provided, to Go, so we don't have any tests for our code. However, when pushing code to the main branch, CircleCI builds our Docker images, so one could argue that the build is a form of testing.
-        \item Portability - It is hard to measure since we have not made use of unit testing or integration testing. What we have to state that our code is somewhat portable is the fact that we use static analysis tools to ensure coding standards and clean conventions.
-        \item Reusability - We have reusable code within our application and have made use of reusable code rather than redundant code. An example is our controller, which has methods used by both our API and app.
-        % \item During the course of developing and maintaining Minitwit, we tried to minimize our accrued technical debt. To combat it, we kept a backlog of 
+        \item \texttt{Reliability} - Static analysis tools (described above) are used to ensure reliability within our system.
+        \item \texttt{Maintainability} - Our code should be easy to read. For example, instead of doing fancy one-liners, code should be written out in longer form for better readability. All variable names should be easy to understand. This makes the code less messy and easier to maintain.
+        \item \texttt{Testability} - We want to have unit tests for our code, such that, whenever we push any new code to our repository, we know that it does not break anything.
+        \item \texttt{Portability} - Our code should be as portable as possible. This means, that we should develop with the API in mind, such that we avoid platform specific solutions.
+        \item \texttt{Reusability} - Code should be reusable, to avoid code duplicated or redundant code. 
+        \item \texttt{Technical debt} should be minimized as much as possible. It is unrealistic to avoid completely, but steps should always be made to combat it. 
         
-        %As with all projects, we did not manage perfectly. Having to release on Github
+        %\item Maintainability - We have written our code in a way that makes it easy to read. For example, instead of doing fancy one-liners, we usually write out the code in longer form for better readability, and we also use easy to understand variable names. This makes the code less messy and easier to maintain.
+        %\item Testability - We didn't have time to translate the Python unit tests, that we were provided, to Go, so we don't have any tests for our code. However, when pushing code to the main branch, CircleCI builds our Docker images, so one could argue that the build is a form of testing.
+        %\item Portability - It is hard to measure since we have not made use of unit testing or integration testing. What we have to state that our code is somewhat portable is the fact that we use static analysis tools to ensure coding standards and clean conventions.
+        %\item Reusability - We have reusable code within our application and have made use of reusable code rather than redundant code. An example is our controller, which has methods used by both our API and app.
+        %\item During the course of developing and maintaining Minitwit, we tried to minimize our accrued technical debt. To combat it, we kept a backlog of things that we're deployed, but not yet satisfactory.
     \end{itemize}    
 \end{itemize}
-
 
 The final step of our CI/CD chain is that we have a Discord bot set up that publishes a message to our Discord server, whenever there is a new commit to the repository. This way, all developers are encouraged to stay up to date with the code base.
 
@@ -55,9 +58,7 @@ For weekly tasks, we post a message on our discord, that tracks who is responsib
 
 
 \subsection{Monitoring}\label{Monitoring}
-%\textcolor{red}{How do you monitor your systems and what precisely do you monitor?
-%Monitoring..
-%Stats fra deres API...}
+%\textcolor{red}{How do you monitor your systems and what precisely do you monitor?}
 
 To monitor our application, we use the tool Prometheus that monitors the metrics we want to track. 
 We use the package PromAuto to setup the metrics we want to track with Prometheus. The constructors in PromAuto, in contrast to the Prometheus package, returns \textit{Collectors} that are already registered to a registry. It creates functions on 2 levels: top level functions, that return \textit{Collectors} registered to the global registry, and Factory type methods that returns \textit{Collectors} that are registered with the constructor, that the factory were created with.
@@ -69,10 +70,9 @@ We have chosen to track three metrics. We track them for our App as well as our 
     \item The average duration of requests
 \end{itemize}
 
-
 To visualize our data, we use the tool Grafana which uses the Prometheus data and visualizes it to us through a web endpoint.
 
-The Grafana dashboard can be seen at the appendix \textit{figure 8} \ref{appendix:dashboard}. The Dashboard makes a nice visual of the chosen metrics and generates an easy overview.
+The Grafana dashboard can be seen at \ref{appendix:dashboard}. The Dashboard makes a nice visual of the chosen metrics and generates an easy overview.
 
 \subsection{Logging}
 %\textcolor{red}{What do you log in your systems and how do you aggregate logs?}
@@ -96,7 +96,7 @@ To estimate the security standing of our system, we sat down as a team and compl
 \begin{figure}[H]
     \centering
     \includegraphics[scale=0.85]{images/risk_matrix.png}
-    \caption{The Risk matrix visualizes threats based on their severity and likelihood}
+    \caption{The Risk matrix visualizes threats based on their severity and likelihood.}
     \label{fig:Risk_matrix}
 \end{figure}
 
